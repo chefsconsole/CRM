@@ -73,6 +73,38 @@ Requirements: Node ≥ 20, a MongoDB instance (local or Atlas), and an Anthropic
 API key (or `ant auth login`). The API boots without a key — CRM read routes
 work — but agent runs return `503` until a key is configured.
 
+## How to check it works
+
+Three ways, easiest first:
+
+**1. Read the code.** Everything is on the branch — start with this README, then
+[`ARCHITECTURE.md`](./ARCHITECTURE.md), then `src/ai/agents/` and `src/scheduler/`.
+
+**2. Run the zero-setup demo.** Exercises the *entire non-AI backbone*
+end-to-end — de-duplication, itinerary + quote, booking (trip + deposit
+invoice), and the scheduler's automated follow-ups — printing the result at
+each step. No API key needed (the scheduler falls back to templates).
+
+```bash
+npm install
+npm run demo                    # spins up an in-memory MongoDB automatically
+```
+
+If your network blocks the in-memory MongoDB binary download, point the demo at
+any real Mongo instead (a local `mongod`, or a free MongoDB Atlas cluster):
+
+```bash
+DEMO_MONGODB_URI="mongodb+srv://user:pass@cluster/tt_demo" npm run demo
+# add ANTHROPIC_API_KEY=... to also see a live AI employee at the end
+```
+
+**3. Run the full app** and hit the HTTP endpoints (see *Try it* below):
+
+```bash
+cp .env.example .env            # set ANTHROPIC_API_KEY + MONGODB_URI
+npm run seed && npm run dev
+```
+
 ### Try it
 
 ```bash
