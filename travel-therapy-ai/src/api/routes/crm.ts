@@ -5,6 +5,11 @@ import {
   LeadModel,
   ItineraryModel,
   QuoteModel,
+  TripModel,
+  PaymentModel,
+  CampaignModel,
+  ContentAssetModel,
+  SupplierModel,
 } from "../../db/models/index.js";
 
 /** Read-only CRM endpoints for inspecting what the agents produced. */
@@ -74,5 +79,72 @@ crmRouter.get(
       return;
     }
     res.json({ quote });
+  })
+);
+
+crmRouter.get(
+  "/trips",
+  asyncHandler(async (req, res) => {
+    const filter: Record<string, unknown> = {};
+    if (req.query.status) filter.status = req.query.status;
+    const trips = await TripModel.find(filter)
+      .populate("customer", "name email")
+      .sort({ createdAt: -1 })
+      .limit(Math.min(Number(req.query.limit ?? 25), 100))
+      .lean();
+    res.json({ trips });
+  })
+);
+
+crmRouter.get(
+  "/payments",
+  asyncHandler(async (req, res) => {
+    const filter: Record<string, unknown> = {};
+    if (req.query.status) filter.status = req.query.status;
+    const payments = await PaymentModel.find(filter)
+      .populate("customer", "name email")
+      .sort({ createdAt: -1 })
+      .limit(Math.min(Number(req.query.limit ?? 25), 100))
+      .lean();
+    res.json({ payments });
+  })
+);
+
+crmRouter.get(
+  "/suppliers",
+  asyncHandler(async (req, res) => {
+    const filter: Record<string, unknown> = {};
+    if (req.query.destination) filter.destination = req.query.destination;
+    if (req.query.type) filter.type = req.query.type;
+    const suppliers = await SupplierModel.find(filter)
+      .sort({ preferred: -1, rating: -1 })
+      .limit(Math.min(Number(req.query.limit ?? 50), 100))
+      .lean();
+    res.json({ suppliers });
+  })
+);
+
+crmRouter.get(
+  "/campaigns",
+  asyncHandler(async (req, res) => {
+    const campaigns = await CampaignModel.find()
+      .sort({ scheduledFor: 1, createdAt: -1 })
+      .limit(Math.min(Number(req.query.limit ?? 50), 100))
+      .lean();
+    res.json({ campaigns });
+  })
+);
+
+crmRouter.get(
+  "/content",
+  asyncHandler(async (req, res) => {
+    const filter: Record<string, unknown> = {};
+    if (req.query.kind) filter.kind = req.query.kind;
+    if (req.query.status) filter.status = req.query.status;
+    const content = await ContentAssetModel.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(Math.min(Number(req.query.limit ?? 50), 100))
+      .lean();
+    res.json({ content });
   })
 );

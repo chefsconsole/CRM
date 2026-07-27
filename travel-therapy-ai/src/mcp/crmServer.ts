@@ -11,7 +11,14 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { connectDb } from "../db/connect.js";
-import { LeadModel, ActivityModel, ItineraryModel, QuoteModel } from "../db/models/index.js";
+import {
+  LeadModel,
+  ActivityModel,
+  ItineraryModel,
+  QuoteModel,
+  SupplierModel,
+  PaymentModel,
+} from "../db/models/index.js";
 import { findOrCreateCustomer } from "../services/leadService.js";
 import { createLogger } from "../utils/logger.js";
 
@@ -93,6 +100,53 @@ async function main() {
       if (category) query.category = category;
       const activities = await ActivityModel.find(query).limit(limit ?? 20).lean();
       return text(activities);
+    }
+  );
+
+  server.tool(
+    "upsert_supplier",
+    "Add or update a supplier (hotel, DMC, transfer, activity, etc.) in the database.",
+    {
+      name: z.string(),
+      type: z.enum(["hotel", "dmc", "transfer", "activity", "cruise", "air", "insurance", "other"]),
+      destination: z.string(),
+      country: z.string().optional(),
+      email: z.string().optional(),
+      rating: z.number().min(0).max(5).optional(),
+      preferred: z.boolean().optional(),
+    },
+    async (args) => {
+      const supplier = await SupplierModel.findOneAndUpdate(
+        { name: args.name, destination: args.destination },
+        {
+          name: args.name,
+          type: args.type,
+          destination: args.destination,
+          country: args.country,
+          rating: args.rating,
+          preferred: args.preferred,
+          contact: { email: args.email },
+        },
+        { new: true, upsert: true, setDefaultsOnInsert: true }
+      );
+      return text({ supplierId: supplier.id, name: supplier.name });
+    }
+  );
+
+  server.tool(
+    "list_due_followups",
+    "List everything currently due for follow-up: leads, quote chases, and payment reminders.",
+    {},
+    async () => {
+      const now = new Date();
+      const [leads, quotes, invoices] = await Promise.all([
+        LeadModel.find({ nextFollowUpAt: { $lte: now }, status: { $nin: ["won", "lost"] } })
+          .populate("customer", "name")
+          .lean(),
+        QuoteModel.find({ nextFollowUpAt: { $lte: now }, status: { $in: ["sent", "viewed"] } }).lean(),
+        PaymentModel.find({ nextReminderAt: { $lte: now }, status: { $in: ["due", "overdue"] } }).lean(),
+      ]);
+      return text({ leads, quotes, invoices });
     }
   );
 

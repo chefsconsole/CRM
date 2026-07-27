@@ -1,12 +1,14 @@
 import { env } from "./config/env.js";
 import { connectDb, disconnectDb } from "./db/connect.js";
 import { createServer } from "./api/server.js";
+import { startScheduler, stopScheduler } from "./scheduler/index.js";
 import { createLogger } from "./utils/logger.js";
 
 const log = createLogger("boot");
 
 async function main() {
   await connectDb();
+  startScheduler();
   const app = createServer();
   const server = app.listen(env.port, () => {
     log.info("listening", { port: env.port, company: env.company.name, model: env.aiModel });
@@ -19,6 +21,7 @@ async function main() {
 
   const shutdown = async (signal: string) => {
     log.info("shutdown", { signal });
+    stopScheduler();
     server.close();
     await disconnectDb();
     process.exit(0);

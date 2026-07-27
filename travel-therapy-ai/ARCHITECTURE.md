@@ -48,10 +48,12 @@ register it in `src/ai/registry.ts`. It's immediately runnable at
 | Itinerary Generator | ✅ built | `itinerary-generator`, day-by-day + costing |
 | Quotation Agent | ✅ built | `quotation-agent`, priced quote + message |
 | Customer Success Agent | ✅ built | `customer-success-agent`, lifecycle messaging |
-| Supplier Agent | 🔲 next | Add `supplierOutreach` agent + outreach tools over `Supplier` |
-| Marketing Manager | 🔲 next | 90-day content calendar; reuses the content model |
-| Ad Manager | 🔲 next | Ad copy/creative briefs; human-in-the-loop publish |
-| SEO Manager | 🔲 next | Destination pages, blogs, schema; content model |
+| Supplier Agent | ✅ built | `supplier-agent`, upsert suppliers + log rate outreach |
+| Marketing Manager | ✅ built | `marketing-manager`, schedules the content calendar |
+| Ad Manager | ✅ built | `ad-manager`, weekly ad concepts → content library (human publishes) |
+| SEO Manager | ✅ built | `seo-manager`, destination pages/blogs/FAQs → content library |
+
+All 11 vision employees are implemented.
 
 ### MCP servers
 
@@ -60,30 +62,48 @@ register it in `src/ai/registry.ts`. It's immediately runnable at
 | `mcp-crm` | ✅ built (`src/mcp/crmServer.ts`) |
 | `mcp-itinerary`, `mcp-hotels`, `mcp-payments`, `mcp-social`, … | 🔲 same pattern: wrap the relevant service in an `McpServer` |
 
+## Money is deterministic, not agentic
+
+Booking, invoicing, and recording payments run as plain **service calls**
+(`bookingService`, `paymentService`) invoked from the `accept-quote` flow — never
+as LLM tool calls. The AI drafts the *messages* around money (quote delivery,
+payment reminders); the code moves the money. `fulfilmentTools` exist for agents
+that need them, but the default booking path keeps the model out of the
+transaction.
+
+## The scheduler
+
+`src/scheduler/` is a periodic worker (opt-in via `SCHEDULER_ENABLED`, or one
+pass via `POST /api/scheduler/tick`). Each tick sweeps due items —
+`Lead.nextFollowUpAt`, `Quote.nextFollowUpAt`, `Payment.nextReminderAt` (all
+indexed) — drafts a message with a tool-less writer agent (falling back to a
+template when no API key is set), logs it as an outbound `Interaction`, and
+advances the next-touch time so items never reprocess in a loop. Expired quotes
+are closed; aged leads drop to `nurture`.
+
 ### Database
 
 Implemented collections: `Customer`, `Lead`, `Interaction`, `Itinerary`,
-`Quote`, `Supplier`, `Activity`. The vision's `Trips`, `Payments`, `Campaigns`,
-`Ads`, and `Content Library` are natural next models following the same
-`InferSchemaType` pattern in `src/db/models/`.
+`Quote`, `Supplier`, `Activity`, `Trip`, `Payment`, `Campaign`, `ContentAsset`.
 
 ## Roadmap
 
-**Phase 1 — foundation (this repo).** Core funnel: capture → itinerary → quote,
-7 employees, CRM, one MCP server, REST + webhooks.
+**Phase 1 — foundation. ✅ done.** Core funnel (capture → itinerary → quote),
+CRM, MCP server, REST + webhooks.
 
-**Phase 2 — supply & fulfilment.** Supplier Agent + outreach tools; `Trip` and
-`Payment` models; invoice + payment-reminder automation; booking confirmation.
+**Phase 2 — supply & fulfilment. ✅ done.** Supplier Agent + outreach tools;
+`Trip` and `Payment` models; booking + deposit-invoice flow; payment-reminder
+automation.
 
-**Phase 3 — growth engine.** Marketing Manager (content calendar), Ad Manager,
-SEO Manager; `Campaign` / `Ad` / `ContentLibrary` models; scheduled jobs for the
-"every morning" content run and follow-up chasers (`nextFollowUpAt` is already
-indexed on both `Lead` and `Quote`).
+**Phase 3 — growth engine. ✅ done.** Marketing Manager (content calendar), Ad
+Manager, SEO Manager; `Campaign` + `ContentAsset` (content library); scheduler
+for follow-up chasers.
 
-**Phase 4 — autonomy.** Wire real channel providers (Instagram Graph API,
-WhatsApp Business, email) into the existing webhook + interaction layer; add a
-scheduler that drives follow-ups and the daily marketing run; per-provider
-credentials via a vault.
+**Phase 4 — autonomy. 🔲 next.** Wire real channel providers (Instagram Graph
+API, WhatsApp Business, email/Gmail) into the existing webhook + `Interaction`
+layer so drafted messages actually send; add per-provider credentials via a
+vault; add the "every morning" scheduled marketing run alongside the existing
+follow-up sweep; render luxury PDF proposals from `Quote` + `Itinerary`.
 
 ## Notable extension points
 

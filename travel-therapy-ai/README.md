@@ -17,7 +17,8 @@ pattern. See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for what's built vs. planned
 
 ## What runs today
 
-The end-to-end pipeline, orchestrated across employees:
+The end-to-end pipeline, orchestrated across employees, with automated
+follow-up throughout:
 
 ```
  Instagram DM / website form / WhatsApp / email
@@ -30,9 +31,12 @@ The end-to-end pipeline, orchestrated across employees:
         │
         ▼
  Quotation Agent ──► priced Quote (reference #, inclusions, validity) + delivery message
+        │  (accept-quote flow — deterministic, no LLM in the money path)
+        ▼
+ Trip (booked) + deposit Invoice ──► Scheduler chases the invoice & any stale leads/quotes
 ```
 
-### The AI employees (7 implemented)
+### The AI employees (all 11 from the vision)
 
 | Agent | Role | Tools |
 |---|---|---|
@@ -43,6 +47,16 @@ The end-to-end pipeline, orchestrated across employees:
 | `instagram-agent` | Reply to DMs/comments while capturing the lead | CRM |
 | `social-media-manager` | Daily content pack (reel, carousels, stories, blog, prompts) | — |
 | `customer-success-agent` | Pre/in/post-trip messaging (packing, check-ins, reviews) | — |
+| `supplier-agent` | Build the supplier network; draft & log rate/availability outreach | Suppliers |
+| `marketing-manager` | Plan the 30–90 day content calendar; schedule campaigns | Content |
+| `ad-manager` | Weekly ad concepts: copy, creatives, audiences, budgets (human publishes) | Content |
+| `seo-manager` | Destination pages, blogs, FAQs, schema, keywords | Content |
+
+Post-sale money actions (booking, invoicing, payments) are **deterministic
+service calls**, never LLM tool calls — the AI drafts the messages, the code
+moves the money. A background **scheduler** drives the automated follow-ups,
+quote chases, and payment reminders (drafting with the AI when a key is present,
+falling back to templates when not).
 
 ---
 
@@ -82,6 +96,14 @@ curl -sX POST localhost:4000/api/flows/inbound \
 # Inspect what the agents produced
 curl localhost:4000/api/crm/leads
 curl localhost:4000/api/crm/leads/<leadId>     # lead + its itineraries + quotes
+
+# Customer accepts the quote → book the trip + raise a deposit invoice
+curl -sX POST localhost:4000/api/flows/accept-quote \
+  -H 'content-type: application/json' \
+  -d '{"quoteId":"<quoteId>","depositPercent":25}'
+
+# Run one scheduler pass (lead follow-ups, quote chases, payment reminders)
+curl -sX POST localhost:4000/api/scheduler/tick
 ```
 
 ### Webhooks (channel ingestion)
@@ -106,9 +128,9 @@ The CRM is also exposed over the Model Context Protocol so any MCP client
 npm run mcp:crm      # stdio server
 ```
 
-Tools: `find_or_create_customer`, `list_leads`, `get_lead`, `search_activities`.
-Register it in an MCP client as a stdio server pointing at
-`npx tsx src/mcp/crmServer.ts`.
+Tools: `find_or_create_customer`, `list_leads`, `get_lead`, `search_activities`,
+`upsert_supplier`, `list_due_followups`. Register it in an MCP client as a stdio
+server pointing at `npx tsx src/mcp/crmServer.ts`.
 
 ---
 
@@ -120,13 +142,30 @@ Register it in an MCP client as a stdio server pointing at
 | `GET` | `/api/agents` | List the roster of AI employees |
 | `POST` | `/api/agents/:name/run` | Run one employee (`{ input, context? }`) |
 | `POST` | `/api/flows/inbound` | Full pipeline: capture → itinerary → quote |
+| `POST` | `/api/flows/accept-quote` | Booking: quote → trip + deposit invoice |
 | `GET` | `/api/crm/customers` | Recent customers |
 | `GET` | `/api/crm/leads` | Leads (`?status=`) |
 | `GET` | `/api/crm/leads/:id` | Lead + itineraries + quotes |
 | `GET` | `/api/crm/itineraries/:id` | One itinerary |
 | `GET` | `/api/crm/quotes/:id` | One quote |
+| `GET` | `/api/crm/trips` | Trips (`?status=`) |
+| `GET` | `/api/crm/payments` | Invoices/payments (`?status=`) |
+| `GET` | `/api/crm/suppliers` | Suppliers (`?destination=&type=`) |
+| `GET` | `/api/crm/campaigns` | Content calendar |
+| `GET` | `/api/crm/content` | Content library (`?kind=&status=`) |
+| `POST` | `/api/scheduler/tick` | Run one follow-up/reminder pass |
 | `POST` | `/api/webhooks/instagram` | Instagram DM/comment ingestion |
 | `POST` | `/api/webhooks/website-form` | Website enquiry ingestion |
+
+## Automated follow-ups (scheduler)
+
+`Lead.nextFollowUpAt`, `Quote.nextFollowUpAt`, and `Payment.nextReminderAt` are
+indexed. The scheduler (`src/scheduler/`) sweeps due items and, for each, drafts
+a message (via the AI when configured, else a template), logs it as an outbound
+`Interaction`, and advances the next-touch time so nothing loops. Enable the
+periodic run with `SCHEDULER_ENABLED=true`, or call `POST /api/scheduler/tick`
+manually. Quotes past their validity are auto-expired; leads older than ~3 weeks
+drop to `nurture`.
 
 ---
 
@@ -137,14 +176,16 @@ src/
   config/          env loading
   db/
     connect.ts     mongoose connection
-    models/        Customer, Lead, Interaction, Itinerary, Quote, Supplier, Activity
+    models/        Customer, Lead, Interaction, Itinerary, Quote, Supplier,
+                   Activity, Trip, Payment, Campaign, ContentAsset
   ai/
     client.ts      lazy Anthropic client
     agent.ts       base Agent (Claude tool-use loop)
-    tools/         crm / catalog / itinerary tools
-    agents/        the 7 AI employees
+    tools/         crm / catalog / itinerary / supplier / fulfilment / content
+    agents/        the 11 AI employees
     registry.ts    name → agent factory
-  services/        lead / itinerary / quote domain logic (backs the tools)
+  services/        lead / itinerary / quote / booking / payment / content logic
+  scheduler/       background follow-up & reminder worker
   api/             express server, routes, middleware
   mcp/crmServer.ts MCP stdio server
 scripts/seed.ts    sample supplier & activity catalog

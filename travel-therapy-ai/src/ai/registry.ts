@@ -6,11 +6,16 @@ import { instagramAgent } from "./agents/instagramAgent.js";
 import { travelConsultant } from "./agents/travelConsultant.js";
 import { socialMediaManager } from "./agents/socialMediaManager.js";
 import { customerSuccessAgent } from "./agents/customerSuccessAgent.js";
+import { supplierAgent } from "./agents/supplierAgent.js";
+import { marketingManager } from "./agents/marketingManager.js";
+import { adManager } from "./agents/adManager.js";
+import { seoManager } from "./agents/seoManager.js";
 
 /**
- * The roster of AI employees, keyed by stable name. Factories are called lazily
- * (per invocation) so each run gets a fresh agent instance. Add new employees
- * here — the API `/api/agents/:name/run` route picks them up automatically.
+ * The roster of AI employees, keyed by stable name — the full complement from
+ * the Travel Therapy vision. Factories are called lazily (per invocation) so
+ * each run gets a fresh agent instance. Add new employees here — the API
+ * `/api/agents/:name/run` route picks them up automatically.
  */
 export const agentFactories = {
   "lead-manager": leadManager,
@@ -20,6 +25,10 @@ export const agentFactories = {
   "instagram-agent": instagramAgent,
   "social-media-manager": socialMediaManager,
   "customer-success-agent": customerSuccessAgent,
+  "supplier-agent": supplierAgent,
+  "marketing-manager": marketingManager,
+  "ad-manager": adManager,
+  "seo-manager": seoManager,
 } as const;
 
 export type AgentName = keyof typeof agentFactories;

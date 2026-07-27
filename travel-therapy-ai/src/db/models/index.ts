@@ -5,3 +5,7 @@ export { ItineraryModel, type Itinerary, type ItineraryDoc } from "./Itinerary.j
 export { QuoteModel, type Quote, type QuoteDoc } from "./Quote.js";
 export { SupplierModel, type Supplier, type SupplierDoc } from "./Supplier.js";
 export { ActivityModel, type Activity, type ActivityDoc } from "./Activity.js";
+export { TripModel, type Trip, type TripDoc } from "./Trip.js";
+export { PaymentModel, type Payment, type PaymentDoc } from "./Payment.js";
+export { CampaignModel, type Campaign, type CampaignDoc } from "./Campaign.js";
+export { ContentAssetModel, type ContentAsset, type ContentAssetDoc } from "./ContentAsset.js";

@@ -29,6 +29,12 @@ export const env = {
   },
 
   webhookSecret: process.env.WEBHOOK_SECRET ?? "change-me",
+
+  // Background scheduler that drives due follow-ups and payment reminders.
+  scheduler: {
+    enabled: (process.env.SCHEDULER_ENABLED ?? "false").toLowerCase() === "true",
+    intervalMs: Number(process.env.SCHEDULER_INTERVAL_MS ?? 300_000), // 5 min
+  },
 } as const;
 
 export type Env = typeof env;

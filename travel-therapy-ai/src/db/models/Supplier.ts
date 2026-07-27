@@ -30,6 +30,22 @@ const supplierSchema = new Schema(
     responseRate: { type: Number, default: 0 }, // 0-100, learned over time
     notes: { type: String },
     tags: { type: [String], default: [] },
+
+    // Rate/availability requests the Supplier Agent has sent, and their status.
+    outreach: {
+      type: [
+        new Schema(
+          {
+            channel: { type: String, enum: ["email", "whatsapp", "other"], default: "email" },
+            message: { type: String, required: true },
+            sentAt: { type: Date, default: Date.now },
+            status: { type: String, enum: ["sent", "replied", "no_reply"], default: "sent" },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );

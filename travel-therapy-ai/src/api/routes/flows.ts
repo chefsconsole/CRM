@@ -2,7 +2,9 @@ import { Router } from "express";
 import { asyncHandler } from "../middleware/error.js";
 import { getAgent } from "../../ai/registry.js";
 import { newContext } from "../../ai/types.js";
-import { LeadModel } from "../../db/models/index.js";
+import { LeadModel, QuoteModel } from "../../db/models/index.js";
+import { createTripFromQuote } from "../../services/bookingService.js";
+import { createInvoice } from "../../services/paymentService.js";
 
 export const flowsRouter = Router();
 
@@ -98,5 +100,48 @@ flowsRouter.post(
     }
 
     res.json(result);
+  })
+);
+
+/**
+ * Booking flow: a customer accepts a quote. Deterministic (no LLM in the money
+ * path): create the trip, then raise a deposit invoice. The scheduler then
+ * chases the invoice automatically.
+ *
+ * POST /api/flows/accept-quote
+ * body: { quoteId, startDate?, endDate?, depositPercent? }  (deposit default 25%)
+ */
+flowsRouter.post(
+  "/accept-quote",
+  asyncHandler(async (req, res) => {
+    const { quoteId, startDate, endDate, depositPercent = 25 } = req.body ?? {};
+    if (!quoteId) {
+      res.status(400).json({ error: "Body must include quoteId." });
+      return;
+    }
+    const quote = await QuoteModel.findById(quoteId).lean();
+    if (!quote) {
+      res.status(404).json({ error: "Quote not found" });
+      return;
+    }
+
+    const trip = await createTripFromQuote({
+      quoteId,
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined,
+    });
+
+    const depositAmount = Math.round((quote.total * depositPercent) / 100);
+    const invoice = await createInvoice({
+      tripId: trip.id,
+      amount: depositAmount,
+      kind: "deposit",
+      dueInDays: 7,
+    });
+
+    res.json({
+      tripId: trip.id,
+      invoice: { id: invoice.id, reference: invoice.reference, amount: invoice.amount, dueDate: invoice.dueDate },
+    });
   })
 );

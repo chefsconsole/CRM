@@ -5,6 +5,7 @@ import { agentsRouter } from "./routes/agents.js";
 import { flowsRouter } from "./routes/flows.js";
 import { crmRouter } from "./routes/crm.js";
 import { webhooksRouter } from "./routes/webhooks.js";
+import { schedulerRouter } from "./routes/scheduler.js";
 import { env } from "../config/env.js";
 
 export function createServer() {
@@ -25,6 +26,7 @@ export function createServer() {
   app.use("/api/flows", flowsRouter);
   app.use("/api/crm", crmRouter);
   app.use("/api/webhooks", webhooksRouter);
+  app.use("/api/scheduler", schedulerRouter);
 
   app.use(errorHandler);
   return app;
