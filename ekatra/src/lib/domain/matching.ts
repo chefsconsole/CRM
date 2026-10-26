@@ -7,6 +7,8 @@
 //    "requires confirmation" rather than being guessed.
 // 3. Score = Σ(weight × points) ÷ Σ(weights) × 100.
 // 4. Any failed factor the buyer marked as a must-have caps the score at 35 and marks it ineligible.
+// 5. A property outside every location the buyer chose is capped at 55 — it can be shown as a
+//    partial alternative but never as a strong match, because location is fundamental.
 
 import type { DealType, Intent, ProjectStatus, PropertySegment, PropertyType } from "@prisma/client";
 import { FLEXIBLE_MONTHS, monthsUntil } from "./timelines";
@@ -65,6 +67,8 @@ export interface MatchResult {
   failedMustHaves: string[];
 }
 
+export const STRONG_MATCH = 60;
+export const LOCATION_MISS_CAP = 55;
 const RENT_INTENTS: Intent[] = ["RENT_RESIDENTIAL", "RENT_COMMERCIAL"];
 const COMMERCIAL_TYPES: PropertyType[] = ["OFFICE", "RETAIL_SHOP", "SHOWROOM", "BUSINESS_PREMISES", "COWORKING", "WAREHOUSE"];
 
@@ -202,6 +206,7 @@ export function matchProperty(r: MatchRequirement, p: MatchProperty, now = new D
   let score = Math.round((factors.reduce((s, f) => s + f.weight * f.points, 0) / totalW) * 100);
   const failedMustHaves = factors.filter((f) => r.mustHaves.includes(f.key) && f.status === "miss").map((f) => f.key);
   if (failedMustHaves.length) score = Math.min(score, 35);
+  else if (factors.some((f) => f.key === "location" && f.status === "miss")) score = Math.min(score, LOCATION_MISS_CAP);
   return { propertyId: p.id, eligible: failedMustHaves.length === 0, score, factors, failedMustHaves };
 }
 

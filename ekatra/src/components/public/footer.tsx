@@ -5,7 +5,7 @@ import { getBusiness } from "@/lib/settings";
 export async function SiteFooter() {
   const b = await getBusiness();
   const cols = [
-    { title: "Discover", links: [["Homes for sale", "/properties?mode=homes"], ["Commercial", "/properties?mode=commercial"], ["Pre-leased", "/properties?mode=pre-leased"], ["Rentals", "/properties?mode=rent-homes"], ["Map view", "/properties?view=map"]] },
+    { title: "Discover", links: [["Homes for sale", "/properties?mode=homes"], ["Commercial", "/properties?mode=commercial"], ["Pre-leased", "/properties?mode=pre-leased"], ["Rentals", "/properties?mode=rent-homes"], ["Map view", "/properties?view=map"], ["Available homes", "/inventory"]] },
     { title: "Collective buying", links: [["Active buying groups", "/groups"], ["How it works", "/how-it-works"], ["Find my match", "/match"], ["Developers", "/developers"], ["Locations", "/locations"]] },
     { title: "Company", links: [["My account", "/account"], ["Privacy notice", "/legal/privacy"], ["Terms of use", "/legal/terms"], ["Disclosures", "/legal/disclosures"], ["Team sign-in", "/admin/login"]] },
   ];

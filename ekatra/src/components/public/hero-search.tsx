@@ -98,14 +98,14 @@ export function HeroSearch({ locations }: { locations: Loc[] }) {
   const configs = CONFIGS[mode];
   return (
     <div className="w-full max-w-4xl">
-      <div className="mb-3 flex flex-wrap gap-1.5" role="tablist" aria-label="What are you looking for">
+      <div className="-mx-1 mb-3 flex gap-1.5 overflow-x-auto px-1 scrollbar-none" role="tablist" aria-label="What are you looking for">
         {TABS.map((t) => (
           <button
             key={t.mode}
             role="tab"
             aria-selected={mode === t.mode}
             onClick={() => setMode(t.mode)}
-            className={cn("relative rounded-full px-4 py-2 text-[13px] font-medium transition", mode === t.mode ? "text-ink-950" : "text-ivory-100/80 hover:text-white")}
+            className={cn("relative shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-[13px] font-medium transition", mode === t.mode ? "text-ink-950" : "text-ivory-100/80 hover:text-white")}
           >
             {mode === t.mode && <motion.span layoutId="hero-tab" className="absolute inset-0 rounded-full bg-ivory-50" transition={{ type: "spring", bounce: 0.18, duration: 0.6 }} />}
             <span className="relative">{t.label}</span>

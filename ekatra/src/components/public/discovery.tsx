@@ -150,7 +150,7 @@ export function Discovery({ cards, options, mode, view }: { cards: ProjectCard[]
 
       {/* Toolbar */}
       <div className="sticky top-[72px] z-30 -mx-5 mt-6 flex flex-wrap items-center gap-3 border-b border-ink-900/[0.06] bg-ivory-50/90 px-5 py-3 backdrop-blur-xl md:mx-0 md:rounded-2xl md:border md:px-3">
-        <form onSubmit={(e) => { e.preventDefault(); set({ q: q.trim() || null }); }} className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-ink-900/10 bg-white px-4">
+        <form onSubmit={(e) => { e.preventDefault(); set({ q: q.trim() || null }); }} className="flex min-w-0 flex-1 basis-full items-center gap-2 rounded-full border border-ink-900/10 bg-white px-4 sm:basis-auto">
           <Search className="size-4 shrink-0 text-stone-400" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search project, developer or area" className="h-10 min-w-0 flex-1 bg-transparent text-sm focus:outline-none" aria-label="Search" />
           {q && <button type="button" onClick={() => { setQ(""); set({ q: null }); }} aria-label="Clear search"><X className="size-4 text-stone-400" /></button>}
