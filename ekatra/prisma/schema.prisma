@@ -1,0 +1,1228 @@
+// Ekatra — collective homebuying platform.
+// Money is stored as whole rupees in double-precision columns (exact up to ₹9e15).
+// Areas are in square feet. All timestamps are UTC.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────── Enums ─────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  OPERATIONS_MANAGER
+  SALES_REP
+  ANALYST
+}
+
+/// Confidence attached to any fact we publish (price, possession date, RERA, ...).
+enum DataVerification {
+  VERIFIED
+  INDICATIVE
+  AWAITING_VERIFICATION
+  OUTDATED
+  UNAVAILABLE
+}
+
+enum LocationKind {
+  CITY
+  REGION
+  SUBURB
+  NEIGHBOURHOOD
+}
+
+enum ProjectStatus {
+  ANNOUNCED
+  PRE_LAUNCH
+  NEW_LAUNCH
+  UNDER_CONSTRUCTION
+  NEARING_POSSESSION
+  READY_TO_MOVE
+}
+
+enum ProjectCategory {
+  RESIDENTIAL
+  MIXED_USE
+  VILLA
+  REDEVELOPMENT
+}
+
+enum CoordinatePrecision {
+  EXACT
+  APPROXIMATE
+}
+
+enum MediaKind {
+  IMAGE
+  FLOOR_PLAN
+  BROCHURE
+}
+
+enum CampaignStatus {
+  DRAFT
+  COLLECTING_DEMAND
+  READY_FOR_DEVELOPER
+  NEGOTIATING
+  BENEFITS_CONFIRMED
+  PAUSED
+  CLOSED
+}
+
+/// How a campaign's buyer numbers are shown on the public site.
+enum DemandVisibility {
+  EXACT
+  APPROXIMATE
+  PRIVATE
+}
+
+enum BenefitStatus {
+  UNDER_NEGOTIATION
+  CONFIRMED
+  EXPIRED_WITHDRAWN
+}
+
+enum LeadStage {
+  NEW_INQUIRY
+  CONTACT_PENDING
+  CONTACTED
+  QUALIFIED
+  VISIT_SCHEDULED
+  VISIT_COMPLETED
+  NEGOTIATION_FOLLOWUP
+  BOOKING_IN_PROGRESS
+  CONVERTED
+  LOST
+}
+
+enum BuyerVerification {
+  UNVERIFIED
+  CONTACT_VERIFIED
+  KYC_VERIFIED
+}
+
+/// The strength of a buyer's interest in a specific project. Never treat
+/// EXPRESSION_OF_INTEREST as a commitment.
+enum InterestTier {
+  EXPRESSION_OF_INTEREST
+  VERIFIED_LEAD
+  FINANCIALLY_QUALIFIED
+  COMMITTED
+}
+
+enum InterestStatus {
+  ACTIVE
+  WITHDRAWN
+}
+
+enum PurchaseTimeline {
+  IMMEDIATE
+  WITHIN_6_MONTHS
+  WITHIN_12_MONTHS
+  BEYOND_12_MONTHS
+  EXPLORING
+}
+
+enum FundingReadiness {
+  NOT_SHARED
+  SELF_FUNDED
+  LOAN_PRE_APPROVED
+  LOAN_REQUIRED
+  PART_FUNDED
+}
+
+enum DeveloperStage {
+  IDENTIFIED
+  CONTACTED
+  MEETING_SCHEDULED
+  DEMAND_PRESENTED
+  NEGOTIATION
+  TERMS_AGREED
+  ACTIVE_PARTNERSHIP
+  INACTIVE
+}
+
+enum NegotiationStatus {
+  PREPARING
+  PRESENTED
+  AWAITING_RESPONSE
+  COUNTER_PROPOSED
+  AGREED
+  DECLINED
+  CLOSED
+}
+
+enum NegotiationUpdateKind {
+  OUTREACH
+  MEETING
+  PROPOSAL
+  DEVELOPER_RESPONSE
+  NOTE
+}
+
+enum AgreementStatus {
+  DRAFT
+  UNDER_REVIEW
+  SIGNED
+  EXPIRED
+  TERMINATED
+}
+
+enum CommissionBasis {
+  AGREEMENT_VALUE
+  BASIC_SALE_PRICE
+  FIXED_AMOUNT
+  OTHER
+}
+
+enum CommissionTrigger {
+  BOOKING
+  AGREEMENT_REGISTRATION
+  PAYMENT_MILESTONE
+  POSSESSION
+  OTHER
+}
+
+enum TransactionStatus {
+  BOOKED
+  AGREEMENT_REGISTERED
+  CANCELLED
+}
+
+enum CommissionStatus {
+  NOT_ELIGIBLE
+  AWAITING_CONFIRMATION
+  ELIGIBLE
+  INVOICE_PENDING
+  INVOICED
+  PARTIALLY_PAID
+  PAID
+  DISPUTED
+  CANCELLED
+}
+
+enum VisitStatus {
+  REQUESTED
+  SCHEDULED
+  CONFIRMED
+  COMPLETED
+  RESCHEDULED
+  CANCELLED
+}
+
+enum ActivityType {
+  NOTE
+  CALL
+  MESSAGE
+  EMAIL
+  STAGE_CHANGE
+  VISIT
+  INTEREST
+  CAMPAIGN
+  SYSTEM
+}
+
+enum TaskStatus {
+  OPEN
+  DONE
+  CANCELLED
+}
+
+enum ConsentPurpose {
+  CONTACT_ABOUT_INQUIRY
+  SHARE_WITH_DEVELOPER
+  MARKETING_UPDATES
+  WHATSAPP_MESSAGES
+}
+
+enum MessageChannel {
+  EMAIL
+  WHATSAPP
+}
+
+enum MessageStatus {
+  QUEUED
+  SENT
+  LOGGED
+  FAILED
+}
+
+enum PropertySegment {
+  RESIDENTIAL
+  COMMERCIAL
+}
+
+enum DealType {
+  SALE
+  RENT
+  PRE_LEASED
+}
+
+enum PropertyType {
+  APARTMENT
+  PENTHOUSE
+  DUPLEX
+  VILLA
+  PLOT
+  OFFICE
+  RETAIL_SHOP
+  SHOWROOM
+  BUSINESS_PREMISES
+  COWORKING
+  WAREHOUSE
+}
+
+enum Furnishing {
+  UNFURNISHED
+  SEMI_FURNISHED
+  FURNISHED
+  WARM_SHELL
+  BARE_SHELL
+  PLUG_AND_PLAY
+}
+
+enum Occupancy {
+  VACANT
+  TENANT_OCCUPIED
+  OWNER_OCCUPIED
+  UNDER_CONSTRUCTION
+}
+
+enum Intent {
+  RES_SELF_USE
+  RES_INVESTMENT
+  COM_OFFICE
+  COM_RETAIL
+  COM_INVESTMENT
+  PRE_LEASED
+  RENT_RESIDENTIAL
+  RENT_COMMERCIAL
+  PLOT
+}
+
+enum LoanRequirement {
+  YES
+  NO
+  UNDECIDED
+}
+
+enum FundingStatus {
+  READY
+  LOAN_IN_PROCESS
+  EXPLORING_FINANCE
+  NOT_ASSESSED
+}
+
+enum BuyerSituation {
+  READY_TO_PURCHASE
+  COMPARING_SHORTLIST
+  WAITING_FOR_PRICE
+  WAITING_FOR_FUNDS
+  WAITING_FOR_LOAN
+  SELLING_ANOTHER_PROPERTY
+  WAITING_FOR_EXISTING_POSSESSION
+  EXPLORING
+}
+
+enum Priority {
+  A
+  B
+  C
+  D
+}
+
+enum RequirementStatus {
+  ACTIVE
+  FULFILLED
+  ARCHIVED
+}
+
+// ───────────────────────────── Team & auth ─────────────────────────────
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  phone        String?
+  passwordHash String
+  role         Role      @default(SALES_REP)
+  active       Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions           Session[]
+  assignedBuyers     Buyer[]             @relation("BuyerAssignee")
+  ownedDevelopers    Developer[]         @relation("DeveloperOwner")
+  ownedCampaigns     Campaign[]          @relation("CampaignOwner")
+  ownedNegotiations  Negotiation[]       @relation("NegotiationOwner")
+  visits             SiteVisit[]         @relation("VisitAssignee")
+  activities         Activity[]
+  tasks              Task[]              @relation("TaskAssignee")
+  notifications      Notification[]
+  priceChanges       PriceHistory[]
+  negotiationUpdates NegotiationUpdate[]
+  uploadedDocuments  Document[]
+  auditLogs          AuditLog[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  buyerId   String?
+  buyer     Buyer?   @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([buyerId])
+}
+
+/// Passwordless sign-in codes for buyers. Only a hash is stored.
+model BuyerLoginCode {
+  id         String    @id @default(cuid())
+  email      String
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([email, createdAt])
+}
+
+// ───────────────────────────── Geography ─────────────────────────────
+
+model Location {
+  id          String       @id @default(cuid())
+  slug        String       @unique
+  name        String
+  kind        LocationKind
+  parentId    String?
+  parent      Location?    @relation("LocationTree", fields: [parentId], references: [id])
+  children    Location[]   @relation("LocationTree")
+  tagline     String?
+  description String?
+  highlights  String[]
+  imageUrl    String?
+  lat         Float?
+  lng         Float?
+  isFeatured  Boolean      @default(false)
+  sortOrder   Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  projects         Project[]
+  stats            LocationStat[]
+  buyerPreferences BuyerLocationPreference[]
+
+  @@index([parentId])
+}
+
+/// A market statistic. Every figure must carry a source and an as-of date.
+model LocationStat {
+  id         String   @id @default(cuid())
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  label      String
+  value      String
+  sourceName String
+  sourceUrl  String?
+  asOf       DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([locationId])
+}
+
+// ───────────────────────────── Developers ─────────────────────────────
+
+model Developer {
+  id                   String           @id @default(cuid())
+  slug                 String           @unique
+  name                 String
+  website              String?
+  description          String?
+  officeAddress        String?
+  email                String?
+  phone                String?
+  established          Int?
+  stage                DeveloperStage   @default(IDENTIFIED)
+  verification         DataVerification @default(AWAITING_VERIFICATION)
+  /// True when the name belongs to a real company but nothing here has been verified with them.
+  isUnverifiedRealName Boolean          @default(false)
+  isPublic             Boolean          @default(true)
+  relationshipOwnerId  String?
+  relationshipOwner    User?            @relation("DeveloperOwner", fields: [relationshipOwnerId], references: [id])
+  notes                String?
+  nextFollowUpAt       DateTime?
+  isDemo               Boolean          @default(false)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  contacts     DeveloperContact[]
+  projects     Project[]
+  negotiations Negotiation[]
+  agreements   CommercialAgreement[]
+  documents    Document[]
+  activities   Activity[]
+  tasks        Task[]
+
+  @@index([stage])
+}
+
+model DeveloperContact {
+  id          String    @id @default(cuid())
+  developerId String
+  developer   Developer @relation(fields: [developerId], references: [id], onDelete: Cascade)
+  name        String
+  designation String?
+  email       String?
+  phone       String?
+  isSalesTeam Boolean   @default(false)
+  notes       String?
+  createdAt   DateTime  @default(now())
+
+  @@index([developerId])
+}
+
+// ───────────────────────────── Projects ─────────────────────────────
+
+model Project {
+  id                     String              @id @default(cuid())
+  slug                   String              @unique
+  name                   String
+  developerId            String
+  developer              Developer           @relation(fields: [developerId], references: [id])
+  locationId             String
+  location               Location            @relation(fields: [locationId], references: [id])
+  tagline                String?
+  description            String?
+  addressLine            String?
+  category               ProjectCategory     @default(RESIDENTIAL)
+  segment                PropertySegment     @default(RESIDENTIAL)
+  dealType               DealType            @default(SALE)
+  propertyType           PropertyType        @default(APARTMENT)
+  furnishing             Furnishing?
+  occupancy              Occupancy?
+  availableFrom          DateTime?
+  parkingSlots           Int?
+  /// Commercial / pre-leased / rental attributes (null when not applicable or unknown).
+  monthlyRent            Float?
+  securityDeposit        Float?
+  leaseStart             DateTime?
+  leaseEnd               DateTime?
+  leaseVerification      DataVerification    @default(AWAITING_VERIFICATION)
+  leaseTenureMonths      Int?
+  lockInMonths           Int?
+  escalationPct          Float?
+  escalationEveryMonths  Int?
+  maintenanceMonthly     Float?
+  propertyTaxAnnual      Float?
+  insuranceAnnual        Float?
+  tenantDisclosure       String?
+  buildingGrade          String?
+  gradeVerification      DataVerification    @default(AWAITING_VERIFICATION)
+  powerLoadKva           Float?
+  infrastructureNotes    String?
+  permittedUse           String?
+  fitOut                 String?
+  tenantPolicy           String?
+  petsAllowed            Boolean?
+  status                 ProjectStatus       @default(ANNOUNCED)
+  launchDate             DateTime?
+  launchVerification     DataVerification    @default(AWAITING_VERIFICATION)
+  possessionDate         DateTime?
+  possessionVerification DataVerification    @default(AWAITING_VERIFICATION)
+  reraNumber             String?
+  reraUrl                String?
+  reraVerification       DataVerification    @default(AWAITING_VERIFICATION)
+  officialWebsite        String?
+  lat                    Float?
+  lng                    Float?
+  coordinatePrecision    CoordinatePrecision @default(APPROXIMATE)
+  priceBasis             String?
+  taxesAndCharges        String?
+  parkingInfo            String?
+  amenities              String[]
+  towers                 Int?
+  storeys                Int?
+  landParcelAcres        Float?
+  /// Overall confidence in the published information.
+  dataVerification       DataVerification    @default(AWAITING_VERIFICATION)
+  lastVerifiedAt         DateTime?
+  sourceLinks            String[]
+  internalNotes          String?
+  /// Public promotion requires both flags; compliance review gates publication.
+  isPublished            Boolean             @default(false)
+  complianceReviewed     Boolean             @default(false)
+  complianceNotes        String?
+  isFeatured             Boolean             @default(false)
+  isDemo                 Boolean             @default(false)
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  configurations ProjectConfiguration[]
+  media          ProjectMedia[]
+  priceHistory   PriceHistory[]
+  campaigns      Campaign[]
+  benefits       Benefit[]
+  interests      ProjectInterest[]
+  savedBy        SavedProject[]
+  negotiations   Negotiation[]
+  agreements     CommercialAgreement[]
+  transactions   Transaction[]
+  visits         SiteVisit[]
+  documents      Document[]
+  activities     Activity[]
+
+  @@index([locationId])
+  @@index([developerId])
+  @@index([status])
+  @@index([isPublished, complianceReviewed])
+  @@index([segment, dealType])
+}
+
+model ProjectConfiguration {
+  id                String           @id @default(cuid())
+  projectId         String
+  project           Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  label             String
+  /// 1, 1.5, 2, 2.5, 3, 4 ... (0 = studio)
+  bhk               Float
+  carpetAreaMin     Float?
+  carpetAreaMax     Float?
+  priceMin          Float?
+  priceMax          Float?
+  priceVerification DataVerification @default(INDICATIVE)
+  rentMin           Float?
+  rentMax           Float?
+  depositMin        Float?
+  depositMax        Float?
+  availabilityNote  String?
+  sortOrder         Int              @default(0)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  priceHistory PriceHistory[]
+  transactions Transaction[]
+
+  @@index([projectId])
+  @@index([bhk])
+}
+
+model ProjectMedia {
+  id        String    @id @default(cuid())
+  projectId String
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  kind      MediaKind @default(IMAGE)
+  url       String
+  caption   String?
+  credit    String?
+  isPrimary Boolean   @default(false)
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  @@index([projectId])
+}
+
+/// Append-only record of every indicative price change.
+model PriceHistory {
+  id              String                @id @default(cuid())
+  projectId       String
+  project         Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  configurationId String?
+  configuration   ProjectConfiguration? @relation(fields: [configurationId], references: [id], onDelete: SetNull)
+  configLabel     String
+  oldMin          Float?
+  oldMax          Float?
+  newMin          Float?
+  newMax          Float?
+  sourceName      String
+  sourceUrl       String?
+  note            String?
+  changedById     String?
+  changedBy       User?                 @relation(fields: [changedById], references: [id])
+  changedAt       DateTime              @default(now())
+
+  @@index([projectId, changedAt])
+}
+
+// ───────────────────────────── Buyers ─────────────────────────────
+
+model Buyer {
+  id                     String            @id @default(cuid())
+  fullName               String
+  phone                  String?
+  /// E.164 form (+91XXXXXXXXXX) — used for duplicate detection.
+  phoneNormalized        String?           @unique
+  email                  String?
+  emailNormalized        String?           @unique
+  preferredConfigs       Float[]
+  budgetMin              Float?
+  budgetMax              Float?
+  timeline               PurchaseTimeline  @default(EXPLORING)
+  fundingReadiness       FundingReadiness  @default(NOT_SHARED)
+  priorityComputed       Priority          @default(D)
+  priorityReasons        String[]
+  priorityOverride       Priority?
+  priorityOverrideReason String?
+  priorityOverrideById   String?
+  /// Effective priority = override ?? computed (see src/lib/domain/priority.ts). Stored for filtering.
+  priority               Priority          @default(D)
+  leadSource             String            @default("Website")
+  stage                  LeadStage         @default(NEW_INQUIRY)
+  verification           BuyerVerification @default(UNVERIFIED)
+  assignedToId           String?
+  assignedTo             User?             @relation("BuyerAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  lastContactedAt        DateTime?
+  nextFollowUpAt         DateTime?
+  lostReason             String?
+  notes                  String?
+  /// Set when personal data has been erased on request; the row remains for aggregate counts.
+  anonymizedAt           DateTime?
+  deletionRequestedAt    DateTime?
+  isDemo                 Boolean           @default(false)
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+
+  locationPreferences BuyerLocationPreference[]
+  interests           ProjectInterest[]
+  campaignMemberships CampaignMember[]
+  savedProjects       SavedProject[]
+  visits              SiteVisit[]
+  activities          Activity[]
+  tasks               Task[]
+  consents            ConsentRecord[]
+  transactions        Transaction[]
+  documents           Document[]
+  sessions            Session[]
+  requirements        BuyerRequirement[]
+
+  @@index([stage])
+  @@index([priority])
+  @@index([assignedToId])
+  @@index([nextFollowUpAt])
+  @@index([createdAt])
+}
+
+/// A structured requirement. A buyer may hold several (e.g. buy a home AND rent an office).
+/// Timelines are stored as numbers so they can be filtered and compared.
+model BuyerRequirement {
+  id                    String            @id @default(cuid())
+  buyerId               String
+  buyer                 Buyer             @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  status                RequirementStatus @default(ACTIVE)
+  intents               Intent[]
+  /// Preferred project stages: ANNOUNCED/PRE_LAUNCH/NEW_LAUNCH/UNDER_CONSTRUCTION/READY_TO_MOVE ...
+  stagePreferences      ProjectStatus[]
+  propertyTypes         PropertyType[]
+  primaryLocationId     String?
+  secondaryLocationId   String?
+  /// Only locations the buyer explicitly accepted — never inferred from proximity.
+  acceptableLocationIds String[]
+  projectIds            String[]
+  landmark              String?
+  maxDistanceKm         Float?
+  transport             String[]
+  budgetMin             Float?
+  budgetMax             Float?
+  budgetIdeal           Float?
+  budgetStretch         Float?
+  downPayment           Float?
+  loanRequired          LoanRequirement   @default(UNDECIDED)
+  fundingStatus         FundingStatus     @default(NOT_ASSESSED)
+  rentMin               Float?
+  rentMax               Float?
+  depositBudget         Float?
+  moveInBy              DateTime?
+  leaseMonths           Int?
+  /// Days until the buyer could commit if the right property and terms are found (9999 = just exploring).
+  commitWithinDays      Int?
+  /// Days until a booking payment could be made (0 = immediately, null = not sure).
+  bookingWithinDays     Int?
+  situation             BuyerSituation    @default(EXPLORING)
+  /// Months the buyer will wait for possession (0 = ready now, 999 = flexible).
+  possessionWaitMonths  Int?
+  configurations        Float[]
+  carpetMin             Float?
+  carpetIdeal           Float?
+  minBathrooms          Int?
+  parkingNeeded         Int?
+  furnishing            Furnishing[]
+  floorPreference       String?
+  views                 String[]
+  balconyOrTerrace      Boolean?
+  vastu                 Boolean?
+  essentials            String?
+  /// Factor keys the buyer marked non-negotiable: location, budget, configuration, carpet, possession, parking, furnishing.
+  mustHaves             String[]
+  powerLoadKva          Float?
+  permittedUse          String?
+  fitOutNeeded          Boolean?
+  occupancyPreference   Occupancy?
+  minGrossYieldPct      Float?
+  maxLockInMonths       Int?
+  tenantType            String?
+  pets                  Boolean?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@index([buyerId])
+  @@index([commitWithinDays])
+  @@index([possessionWaitMonths])
+}
+
+/// A saved, reusable combination of CRM filters.
+model SavedSegment {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  filters     Json
+  ownerId     String?
+  isShared    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model BuyerLocationPreference {
+  buyerId    String
+  buyer      Buyer    @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@id([buyerId, locationId])
+}
+
+/// One row per buyer per project — the unit of demand.
+model ProjectInterest {
+  id             String           @id @default(cuid())
+  buyerId        String
+  buyer          Buyer            @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  projectId      String
+  project        Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  configurations Float[]
+  budgetMin      Float?
+  budgetMax      Float?
+  timeline       PurchaseTimeline @default(EXPLORING)
+  requirements   String?
+  tier           InterestTier     @default(EXPRESSION_OF_INTEREST)
+  status         InterestStatus   @default(ACTIVE)
+  source         String           @default("Website")
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  memberships CampaignMember[]
+
+  @@unique([buyerId, projectId])
+  @@index([projectId, status])
+}
+
+model SavedProject {
+  buyerId   String
+  buyer     Buyer    @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([buyerId, projectId])
+}
+
+model ConsentRecord {
+  id            String         @id @default(cuid())
+  buyerId       String
+  buyer         Buyer          @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  purpose       ConsentPurpose
+  granted       Boolean
+  policyVersion String
+  textShown     String
+  ip            String?
+  userAgent     String?
+  createdAt     DateTime       @default(now())
+
+  @@index([buyerId, purpose])
+}
+
+// ───────────────────────────── Demand Studio ─────────────────────────────
+
+model Campaign {
+  id                 String           @id @default(cuid())
+  slug               String           @unique
+  name               String
+  projectId          String
+  project            Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  headline           String?
+  publicNote         String?
+  /// Optional focus on specific configurations (e.g. a 2 BHK buying group).
+  focusConfigs       Float[]
+  targetBuyers       Int
+  /// Which interest tiers count toward the target.
+  countingTiers      InterestTier[]
+  targetDate         DateTime?
+  status             CampaignStatus   @default(COLLECTING_DEMAND)
+  visibility         DemandVisibility @default(APPROXIMATE)
+  isPublic           Boolean          @default(true)
+  ownerId            String?
+  owner              User?            @relation("CampaignOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  /// Progress milestones (50/75/100) already announced, to avoid duplicate alerts.
+  milestonesNotified Int[]
+  isDemo             Boolean          @default(false)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  members      CampaignMember[]
+  benefits     Benefit[]
+  negotiations Negotiation[]
+  activities   Activity[]
+
+  @@index([projectId])
+  @@index([status])
+}
+
+/// A buyer can appear in a campaign once — this is what makes unique counts reliable.
+model CampaignMember {
+  id         String           @id @default(cuid())
+  campaignId String
+  campaign   Campaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  buyerId    String
+  buyer      Buyer            @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  interestId String?
+  interest   ProjectInterest? @relation(fields: [interestId], references: [id], onDelete: SetNull)
+  joinedAt   DateTime         @default(now())
+  joinedVia  String           @default("Website")
+
+  @@unique([campaignId, buyerId])
+  @@index([buyerId])
+}
+
+model Benefit {
+  id           String        @id @default(cuid())
+  projectId    String
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  campaignId   String?
+  campaign     Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  title        String
+  description  String?
+  status       BenefitStatus @default(UNDER_NEGOTIATION)
+  confirmedAt  DateTime?
+  confirmedBy  String?
+  evidenceNote String?
+  validUntil   DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([projectId, status])
+}
+
+// ───────────────────────────── Negotiations & commercials ─────────────────────────────
+
+model Negotiation {
+  id                     String             @id @default(cuid())
+  title                  String
+  developerId            String
+  developer              Developer          @relation(fields: [developerId], references: [id], onDelete: Cascade)
+  projectId              String?
+  project                Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  campaignId             String?
+  campaign               Campaign?          @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  status                 NegotiationStatus  @default(PREPARING)
+  interestedPresented    Int                @default(0)
+  qualifiedPresented     Int                @default(0)
+  preferredConfigs       String?
+  aggregateBudget        Float?
+  proposedBenefits       String?
+  developerResponse      String?
+  proposedCommissionRate Float?
+  commissionBasis        CommissionBasis?
+  paymentTrigger         CommissionTrigger?
+  paymentTimeline        String?
+  agreementSigned        Boolean            @default(false)
+  lastFollowUpAt         DateTime?
+  nextAction             String?
+  nextActionAt           DateTime?
+  ownerId                String?
+  owner                  User?              @relation("NegotiationOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  isDemo                 Boolean            @default(false)
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  updates    NegotiationUpdate[]
+  agreements CommercialAgreement[]
+
+  @@index([developerId])
+  @@index([status])
+}
+
+model NegotiationUpdate {
+  id            String                @id @default(cuid())
+  negotiationId String
+  negotiation   Negotiation           @relation(fields: [negotiationId], references: [id], onDelete: Cascade)
+  kind          NegotiationUpdateKind
+  body          String
+  authorId      String?
+  author        User?                 @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  createdAt     DateTime              @default(now())
+
+  @@index([negotiationId, createdAt])
+}
+
+model CommercialAgreement {
+  id               String            @id @default(cuid())
+  title            String
+  developerId      String
+  developer        Developer         @relation(fields: [developerId], references: [id], onDelete: Cascade)
+  /// Null means the agreement covers every project of the developer.
+  projectId        String?
+  project          Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  negotiationId    String?
+  negotiation      Negotiation?      @relation(fields: [negotiationId], references: [id], onDelete: SetNull)
+  commissionRate   Float?
+  fixedAmount      Float?
+  basis            CommissionBasis   @default(AGREEMENT_VALUE)
+  trigger          CommissionTrigger @default(AGREEMENT_REGISTRATION)
+  paymentTermsDays Int?
+  status           AgreementStatus   @default(DRAFT)
+  signedAt         DateTime?
+  validFrom        DateTime?
+  validUntil       DateTime?
+  notes            String?
+  isDemo           Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  transactions Transaction[]
+  commissions  Commission[]
+  documents    Document[]
+
+  @@index([developerId])
+}
+
+/// A buyer's purchase of a unit. Commission is computed per transaction.
+model Transaction {
+  id               String                @id @default(cuid())
+  buyerId          String
+  buyer            Buyer                 @relation(fields: [buyerId], references: [id], onDelete: Restrict)
+  projectId        String
+  project          Project               @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  configurationId  String?
+  configuration    ProjectConfiguration? @relation(fields: [configurationId], references: [id], onDelete: SetNull)
+  agreementId      String?
+  agreement        CommercialAgreement?  @relation(fields: [agreementId], references: [id], onDelete: SetNull)
+  unitLabel        String
+  transactionValue Float
+  basicSalePrice   Float?
+  bookingDate      DateTime?
+  registrationDate DateTime?
+  status           TransactionStatus     @default(BOOKED)
+  notes            String?
+  isDemo           Boolean               @default(false)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  commission Commission?
+
+  /// The same unit cannot be recorded twice for a project.
+  @@unique([projectId, unitLabel])
+  @@index([buyerId])
+}
+
+model Commission {
+  id                  String               @id @default(cuid())
+  /// Unique: one commission record per transaction prevents double counting.
+  transactionId       String               @unique
+  transaction         Transaction          @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  agreementId         String?
+  agreement           CommercialAgreement? @relation(fields: [agreementId], references: [id], onDelete: SetNull)
+  rate                Float?
+  basis               CommissionBasis
+  applicableValue     Float
+  amountEarned        Float
+  amountInvoiced      Float                @default(0)
+  invoiceNumber       String?
+  invoiceDate         DateTime?
+  expectedPaymentDate DateTime?
+  status              CommissionStatus     @default(AWAITING_CONFIRMATION)
+  taxNote             String?
+  notes               String?
+  isDemo              Boolean              @default(false)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  payments CommissionPayment[]
+
+  @@index([status])
+}
+
+model CommissionPayment {
+  id           String     @id @default(cuid())
+  commissionId String
+  commission   Commission @relation(fields: [commissionId], references: [id], onDelete: Cascade)
+  amount       Float
+  receivedAt   DateTime
+  reference    String?
+  note         String?
+  createdAt    DateTime   @default(now())
+
+  @@index([commissionId])
+}
+
+// ───────────────────────────── Operations ─────────────────────────────
+
+model SiteVisit {
+  id               String      @id @default(cuid())
+  buyerId          String
+  buyer            Buyer       @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  projectId        String
+  project          Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scheduledAt      DateTime?
+  durationMins     Int         @default(60)
+  preferredWindow  String?
+  assignedToId     String?
+  assignedTo       User?       @relation("VisitAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  meetingPoint     String?
+  status           VisitStatus @default(REQUESTED)
+  notes            String?
+  outcome          String?
+  nextFollowUpAt   DateTime?
+  requestedByBuyer Boolean     @default(false)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@index([scheduledAt])
+  @@index([assignedToId, scheduledAt])
+  @@index([buyerId])
+}
+
+model Activity {
+  id          String       @id @default(cuid())
+  type        ActivityType
+  title       String
+  body        String?
+  meta        Json?
+  actorId     String?
+  actor       User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  buyerId     String?
+  buyer       Buyer?       @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  developerId String?
+  developer   Developer?   @relation(fields: [developerId], references: [id], onDelete: Cascade)
+  projectId   String?
+  project     Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  campaignId  String?
+  campaign    Campaign?    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  createdAt   DateTime     @default(now())
+
+  @@index([buyerId, createdAt])
+  @@index([developerId, createdAt])
+  @@index([campaignId, createdAt])
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  dueAt       DateTime?
+  status      TaskStatus @default(OPEN)
+  assigneeId  String?
+  assignee    User?      @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  buyerId     String?
+  buyer       Buyer?     @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  developerId String?
+  developer   Developer? @relation(fields: [developerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime   @default(now())
+  completedAt DateTime?
+
+  @@index([assigneeId, status, dueAt])
+}
+
+model Document {
+  id           String               @id @default(cuid())
+  title        String
+  kind         String               @default("General")
+  storageKey   String               @unique
+  fileName     String
+  mimeType     String
+  size         Int
+  /// Private documents are only served to authenticated team members.
+  isPrivate    Boolean              @default(true)
+  developerId  String?
+  developer    Developer?           @relation(fields: [developerId], references: [id], onDelete: Cascade)
+  agreementId  String?
+  agreement    CommercialAgreement? @relation(fields: [agreementId], references: [id], onDelete: SetNull)
+  buyerId      String?
+  buyer        Buyer?               @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  projectId    String?
+  project      Project?             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedById String?
+  uploadedBy   User?                @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime             @default(now())
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event     String
+  title     String
+  body      String?
+  link      String?
+  /// Prevents the same alert being raised twice for the same user.
+  dedupeKey String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, readAt, createdAt])
+}
+
+model NotificationRule {
+  id            String   @id @default(cuid())
+  event         String   @unique
+  label         String
+  description   String?
+  enabled       Boolean  @default(true)
+  inApp         Boolean  @default(true)
+  email         Boolean  @default(false)
+  audienceRoles Role[]
+  updatedAt     DateTime @updatedAt
+}
+
+/// Every outbound email / WhatsApp message. In development these are only logged here.
+model OutboundMessage {
+  id        String         @id @default(cuid())
+  channel   MessageChannel
+  to        String
+  subject   String?
+  body      String
+  status    MessageStatus  @default(QUEUED)
+  provider  String
+  error     String?
+  createdAt DateTime       @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorLabel String?
+  action     String
+  entityType String
+  entityId   String?
+  meta       Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
