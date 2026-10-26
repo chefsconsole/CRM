@@ -32,12 +32,12 @@ export function BarList({ data, format = (v) => v.toLocaleString("en-IN"), hrefF
 export function Columns({ data, height = 140, format = (v) => String(v) }: { data: { label: string; value: number }[]; height?: number; format?: (v: number) => string }) {
   const max = Math.max(1, ...data.map((d) => d.value));
   return (
-    <div className="flex items-end gap-3" style={{ height: height + 36 }} role="img" aria-label={data.map((d) => `${d.label} ${format(d.value)}`).join(", ")}>
+    <div className="flex min-w-0 items-end gap-1.5 overflow-hidden" style={{ height: height + 36 }} role="img" aria-label={data.map((d) => `${d.label} ${format(d.value)}`).join(", ")}>
       {data.map((d, i) => (
-        <div key={d.label} className="group flex flex-1 flex-col items-center justify-end gap-2" title={`${d.label}: ${format(d.value)}`}>
+        <div key={d.label} className="group flex min-w-0 flex-1 flex-col items-center justify-end gap-2" title={`${d.label}: ${format(d.value)}`}>
           <span className={cn("num text-[11.5px] font-semibold", i === data.length - 1 ? "text-ink-900" : "text-stone-500 opacity-0 transition group-hover:opacity-100")}>{format(d.value)}</span>
-          <div className={cn("w-full max-w-10 rounded-t-[4px] transition-all duration-700", i === data.length - 1 ? "bg-ink-900" : "bg-ink-900/15 group-hover:bg-ink-900/30")} style={{ height: Math.max(3, (d.value / max) * height) }} />
-          <span className="text-[11px] text-stone-500">{d.label}</span>
+          <div className={cn("w-full max-w-10 min-w-1 rounded-t-[4px] transition-all duration-700", i === data.length - 1 ? "bg-ink-900" : "bg-ink-900/15 group-hover:bg-ink-900/30")} style={{ height: Math.max(3, (d.value / max) * height) }} />
+          <span className="truncate text-[10.5px] text-stone-500">{d.label}</span>
         </div>
       ))}
     </div>

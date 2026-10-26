@@ -425,6 +425,16 @@ async function main() {
     }
   }
 
+
+  // Ungrouped compatible demand (shows "Suggested buying groups" — needs admin review before any campaign)
+  for (let k = 0; k < 5; k++) {
+    const p = proj["atelier-21"]!;
+    const createdAt = daysAgo(between(3, 20));
+    const b = await makeBuyer([3], [4.5 * CR, 5.2 * CR], createdAt);
+    await db.projectInterest.create({ data: { buyerId: b.id, projectId: p.id, configurations: [3], budgetMin: Math.round(between(4.4, 4.9) * 10) / 10 * CR, budgetMax: 5.3 * CR, tier: k < 2 ? "FINANCIALLY_QUALIFIED" : "VERIFIED_LEAD", timeline: "IMMEDIATE", createdAt } });
+    await db.buyerLocationPreference.create({ data: { buyerId: b.id, locationId: loc.andheri! } });
+  }
+
   // Cross-interest: some buyers in two projects (to prove unique counting).
   const crossBuyers = buyerIds.slice(0, 6);
   for (const bid of crossBuyers) {
@@ -455,7 +465,8 @@ async function main() {
   const allBuyers = await db.buyer.findMany({ include: { interests: { include: { project: true } }, locationPreferences: true } });
   for (const b of allBuyers) {
     const i = b.interests[0];
-    const commit = pick(commitDays);
+    const atelier = i?.project.slug === "atelier-21";
+    const commit = atelier ? pick([15, 30]) : pick(commitDays);
     await db.buyerRequirement.create({
       data: {
         buyerId: b.id,
@@ -469,7 +480,7 @@ async function main() {
         loanRequired: pick(["YES", "NO", "UNDECIDED"] as const), fundingStatus: pick(["READY", "LOAN_IN_PROCESS", "EXPLORING_FINANCE", "NOT_ASSESSED"] as const),
         commitWithinDays: commit, bookingWithinDays: commit <= 30 ? pick([0, 7, 15, 30]) : pick(bookingDays),
         situation: commit <= 30 && rand() < 0.7 ? pick(["READY_TO_PURCHASE", "COMPARING_SHORTLIST"] as const) : pick([...situations]),
-        possessionWaitMonths: pick(waitMonths),
+        possessionWaitMonths: atelier ? 36 : pick(waitMonths),
         configurations: i?.configurations.length ? i.configurations : b.preferredConfigs,
         carpetMin: rand() < 0.5 ? pick([550, 650, 750, 950]) : null, parkingNeeded: rand() < 0.4 ? 1 : null,
         mustHaves: rand() < 0.5 ? ["location"] : rand() < 0.5 ? ["budget", "configuration"] : [],

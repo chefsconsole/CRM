@@ -56,7 +56,7 @@ export function StateMessage({ state }: { state: ActionState }) {
     );
   if (state.ok && state.message)
     return (
-      <p role="status" className="mt-4 flex items-center gap-2 rounded-xl bg-sage-50 px-3.5 py-2.5 text-[13px] text-sage-600">
+      <p role="status" className="mt-4 flex items-start gap-2 whitespace-pre-line rounded-xl bg-sage-50 px-3.5 py-2.5 text-[13px] text-sage-600">
         <Check className="size-4" /> {state.message}
       </p>
     );

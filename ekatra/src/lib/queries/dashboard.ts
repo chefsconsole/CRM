@@ -9,6 +9,7 @@ import { evaluateOpportunity, type Opportunity } from "../domain/opportunity";
 import { needsReverification } from "../domain/compliance";
 import { liveMatchProperties, toMatchRequirement } from "../services/requirements";
 import { rankMatches } from "../domain/matching";
+import { suggestGroups, type GroupCandidate } from "../domain/grouping";
 
 const ACTIVE_CAMPAIGN = ["COLLECTING_DEMAND", "READY_FOR_DEVELOPER", "NEGOTIATING", "BENEFITS_CONFIRMED"] as const;
 const OPEN_STAGES = { notIn: ["CONVERTED", "LOST"] as ("CONVERTED" | "LOST")[] };
@@ -165,4 +166,31 @@ export async function getDashboard(user: TeamUser) {
     needsReverify,
     charts: { monthly, demandByLocation, stageCount },
   };
+}
+
+
+export async function suggestedGroups(limit = 6) {
+  const interests = await db.projectInterest.findMany({
+    where: { status: "ACTIVE", buyer: { anonymizedAt: null, stage: { notIn: ["CONVERTED", "LOST"] } }, project: { researchStatus: { not: "EXCLUDED" } } },
+    select: {
+      buyerId: true, tier: true, configurations: true, budgetMin: true, budgetMax: true, projectId: true,
+      project: { select: { name: true, location: { select: { name: true } } } },
+      buyer: { select: { fundingReadiness: true, requirements: { where: { status: "ACTIVE" }, take: 1, orderBy: { updatedAt: "desc" }, select: { commitWithinDays: true, possessionWaitMonths: true, fundingStatus: true } } } },
+    },
+  });
+  const memberships = await db.campaignMember.findMany({ select: { buyerId: true, campaign: { select: { projectId: true, focusConfigs: true } } } });
+  const excluded = new Set<string>();
+  for (const m of memberships) {
+    const cfgs = m.campaign.focusConfigs.length ? m.campaign.focusConfigs : [0, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5];
+    for (const b of cfgs) excluded.add(`${m.campaign.projectId}:${b}:${m.buyerId}`);
+  }
+  const candidates: GroupCandidate[] = interests.map((i) => {
+    const r = i.buyer.requirements[0];
+    return {
+      buyerId: i.buyerId, projectId: i.projectId, projectName: i.project.name, locationName: i.project.location.name, tier: i.tier, configurations: i.configurations,
+      budgetMin: i.budgetMin, budgetMax: i.budgetMax, commitWithinDays: r?.commitWithinDays ?? null, possessionWaitMonths: r?.possessionWaitMonths ?? null,
+      fundingReady: r?.fundingStatus === "READY" || r?.fundingStatus === "LOAN_IN_PROCESS" || ["SELF_FUNDED", "LOAN_PRE_APPROVED"].includes(i.buyer.fundingReadiness),
+    };
+  });
+  return suggestGroups(candidates, excluded).slice(0, limit);
 }
