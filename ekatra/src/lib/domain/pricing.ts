@@ -5,7 +5,9 @@ export interface PriceRange {
   priceMax: number | null;
 }
 
-export class PricingError extends Error {}
+export class PricingError extends Error {
+  name = "PricingError";
+}
 
 export function validatePriceRange(r: PriceRange): void {
   if (r.priceMin !== null && r.priceMin < 0) throw new PricingError("Prices cannot be negative.");

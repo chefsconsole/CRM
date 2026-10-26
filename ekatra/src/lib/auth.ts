@@ -99,7 +99,7 @@ export async function requireTeamUser(): Promise<TeamUser> {
 /** For pages: redirects unauthenticated users, renders 403 for forbidden ones. */
 export async function requirePermission(permission: Permission): Promise<TeamUser> {
   const user = await requireTeamUser();
-  if (!can(user.role, permission)) throw new ForbiddenError(permission);
+  if (!can(user.role, permission)) redirect(`/admin?denied=${encodeURIComponent(permission)}`);
   return user;
 }
 

@@ -240,7 +240,7 @@ async function main() {
         lastVerifiedAt: p.real ? null : daysAgo(Math.round(between(3, 60))),
         sourceLinks: [],
         internalNotes: p.real ? "Unverified example. Do not publish until verified." : "Demo record — fictional project.",
-        isPublished: p.published ?? true, complianceReviewed: p.reviewed ?? true,
+        isPublished: p.published ?? true, complianceReviewed: p.reviewed ?? true, approvalStatus: (p.published ?? true) ? "APPROVED" : "PENDING", researchStatus: "NOT_STARTED", tierReason: "Demo record — fictional project.",
         complianceNotes: p.reviewed === false ? "Pending: RERA verification, developer authorisation, advertising review." : "Demo — reviewed for demonstration only.",
         isFeatured: p.featured ?? false, isDemo: true,
       },
@@ -292,7 +292,7 @@ async function main() {
         lat: l[3] + between(-0.006, 0.006), lng: l[4] + between(-0.006, 0.006), coordinatePrecision: "APPROXIMATE",
         priceBasis: x.deal === "RENT" ? "Indicative monthly rent excluding maintenance, deposit and brokerage." : "Indicative price excluding stamp duty, registration and GST.",
         amenities: ["24×7 security", "Power backup", "Lifts", "Visitor parking"], dataVerification: "INDICATIVE", lastVerifiedAt: daysAgo(Math.round(between(5, 70))),
-        isPublished: true, complianceReviewed: true, isDemo: true, sourceLinks: [], ...x.extra,
+        isPublished: true, complianceReviewed: true, approvalStatus: "APPROVED", isDemo: true, sourceLinks: [], ...x.extra,
       } as never,
     });
     let i = 0;

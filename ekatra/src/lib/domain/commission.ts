@@ -14,7 +14,9 @@ export interface CommissionInput {
   customValue?: number | null;
 }
 
-export class CommissionError extends Error {}
+export class CommissionError extends Error {
+  name = "CommissionError";
+}
 
 export function calculateCommission(input: CommissionInput): { applicableValue: number; amount: number } {
   const { basis } = input;

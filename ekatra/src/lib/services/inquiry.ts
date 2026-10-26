@@ -14,7 +14,9 @@ import { notify } from "../notify";
 
 const OPEN_CAMPAIGN = ["COLLECTING_DEMAND", "READY_FOR_DEVELOPER", "NEGOTIATING", "BENEFITS_CONFIRMED"] as const;
 
-export class InquiryError extends Error {}
+export class InquiryError extends Error {
+  name = "InquiryError";
+}
 
 export async function submitInquiry(input: InquiryInput, ctx: { ip?: string | null; userAgent?: string | null } = {}) {
   const phone = normalizeIndianPhone(input.phone)!;
