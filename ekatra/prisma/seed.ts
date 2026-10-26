@@ -6,6 +6,7 @@ import { PrismaClient, type InterestTier, type LeadStage, type PurchaseTimeline,
 import bcrypt from "bcryptjs";
 import { NOTIFICATION_EVENTS } from "../src/lib/notify";
 import { CONSENT_POLICY_VERSION, CONSENT_TEXT } from "../src/lib/validation";
+import { importResearch } from "./import-research";
 import { liveMatchProperties, recomputeBuyerPriority } from "../src/lib/services/requirements";
 
 const db = new PrismaClient();
@@ -77,6 +78,8 @@ async function reset() {
     db.projectConfiguration.deleteMany(),
     db.project.deleteMany(),
     db.developerContact.deleteMany(),
+    db.researchSource.deleteMany(),
+    db.inventoryUnit.deleteMany(),
     db.developer.deleteMany(),
     db.locationStat.deleteMany(),
     db.location.deleteMany(),
@@ -92,16 +95,16 @@ async function reset() {
 
 async function main() {
   await reset();
-  const password = process.env.SEED_TEAM_PASSWORD || "Ekatra@2026";
+  const password = process.env.SEED_TEAM_PASSWORD || "EstateIQ@2026";
   const hash = await bcrypt.hash(password, 12);
 
   // ── Team
   const team: [string, string, Role][] = [
-    ["Aditi Mehra", "admin@ekatra.demo", "SUPER_ADMIN"],
-    ["Rohan Kapadia", "ops@ekatra.demo", "OPERATIONS_MANAGER"],
-    ["Riya Shah", "riya@ekatra.demo", "SALES_REP"],
-    ["Arjun Nair", "arjun@ekatra.demo", "SALES_REP"],
-    ["Kavya Iyer", "analyst@ekatra.demo", "ANALYST"],
+    ["Aditi Mehra", "admin@estateiq.demo", "SUPER_ADMIN"],
+    ["Rohan Kapadia", "ops@estateiq.demo", "OPERATIONS_MANAGER"],
+    ["Riya Shah", "riya@estateiq.demo", "SALES_REP"],
+    ["Arjun Nair", "arjun@estateiq.demo", "SALES_REP"],
+    ["Kavya Iyer", "analyst@estateiq.demo", "ANALYST"],
   ];
   const users: Record<string, string> = {};
   for (const [name, email, role] of team) {
@@ -159,8 +162,6 @@ async function main() {
     ["sterling-crest", "Sterling Crest Realty", "Boutique luxury residences with an architectural signature.", 2011, "MEETING_SCHEDULED", false],
     ["aaranya-developers", "Aaranya Developers", "Green-certified communities with large open spaces.", 2008, "ACTIVE_PARTNERSHIP", false],
     ["northbay-estates", "Northbay Estates", "Lakeside and waterfront residential developments.", 2015, "NEGOTIATION", false],
-    ["kanakia", "Kanakia (unverified example)", "Real developer name used as an unverified example record. No information here has been verified with the company, and no relationship exists.", 0, "IDENTIFIED", true],
-    ["shreeji", "Shreeji (unverified example)", "Real developer name used as an unverified example record. No information here has been verified with the company, and no relationship exists.", 0, "IDENTIFIED", true],
   ];
   for (const [slug, name, description, est, stage, real] of devData) {
     const d = await db.developer.create({
@@ -213,8 +214,6 @@ async function main() {
     { slug: "the-ledger", name: "The Ledger", dev: "meridian-habitats", loc: "bkc", status: "PRE_LAUNCH", tagline: "Residences at the address of business", description: "A limited collection of full-floor residences beside Mumbai's financial district.", configs: [["4 BHK — Full floor", 4, 3100, 3400, 12.5 * CR, 15 * CR]], images: [PHOTOS.skyscrapers, PHOTOS.livingD, PHOTOS.villaC], amenities: ["Private lift lobby", "Concierge", "Spa", "Business lounge"], towers: 1, storeys: 40, acres: 1.4, featured: true },
     { slug: "verdant-heights", name: "Verdant Heights", dev: "aaranya-developers", loc: "thane", status: "NEW_LAUNCH", tagline: "A hillside township in Thane West", description: "A township on the slopes of the Yeoor hills, with walking trails and a central amphitheatre.", configs: [["2 BHK", 2, 650, 720, 1.1 * CR, 1.3 * CR], ["3 BHK", 3, 940, 1040, 1.65 * CR, 1.95 * CR]], images: [PHOTOS.towerA, PHOTOS.apartmentB], launch: daysAgo(60), possession: new Date("2030-03-31"), amenities: amen, towers: 6, storeys: 30, acres: 11 },
     { slug: "monsoon-house", name: "Monsoon House", dev: "sterling-crest", loc: "borivali-west", status: "ANNOUNCED", tagline: "Draft — awaiting compliance review", description: "Internal draft. Not promoted until RERA details and developer authorisation have been reviewed.", configs: [["3 BHK", 3, 1080, 1150, 3.0 * CR, 3.3 * CR]], images: [PHOTOS.villaB], amenities: [], published: false, reviewed: false },
-    { slug: "kanakia-borivali-example", name: "Kanakia — Borivali (unverified example)", dev: "kanakia", loc: "borivali-west", status: "ANNOUNCED", tagline: "Unverified example record — not published", description: "Example of how an upcoming project by a real developer would be tracked internally while collecting demand. Nothing here is verified: confirm the project, its RERA registration and authorised contacts before publishing.", configs: [["2 BHK", 2, 0, 0, 0, 0], ["3 BHK", 3, 0, 0, 0, 0]], images: [], amenities: [], published: false, reviewed: false, real: true },
-    { slug: "shreeji-borivali-example", name: "Shreeji — Borivali West (unverified example)", dev: "shreeji", loc: "borivali-west", status: "ANNOUNCED", tagline: "Unverified example record — not published", description: "Example of an internally tracked project by a real developer. Nothing here is verified or endorsed.", configs: [["2 BHK", 2, 0, 0, 0, 0]], images: [], amenities: [], published: false, reviewed: false, real: true },
   ];
 
   const proj: Record<string, { id: string; configs: { id: string; bhk: number; priceMin: number | null; priceMax: number | null }[]; loc: string }> = {};
@@ -305,6 +304,10 @@ async function main() {
     proj[x.slug] = { id: created.id, configs: [], loc: x.loc };
   }
 
+  // ── Real-project research (unverified, unpublished, needs review)
+  const imported = await importResearch(db);
+  console.log(`Research projects imported: ${imported}`);
+
   // ── Campaigns
   type C = { slug: string; name: string; project: string; target: number; status: "COLLECTING_DEMAND" | "READY_FOR_DEVELOPER" | "NEGOTIATING" | "BENEFITS_CONFIRMED" | "PAUSED" | "DRAFT"; focus: number[]; visibility: "EXACT" | "APPROXIMATE" | "PRIVATE"; headline: string; owner: string; target_date: number; isPublic?: boolean };
   const campaigns: C[] = [
@@ -315,7 +318,6 @@ async function main() {
     { slug: "solace-bay-group", name: "Mira Road — Solace Bay Group", project: "solace-bay", target: 10, status: "BENEFITS_CONFIRMED", focus: [], visibility: "EXACT", headline: "Mira Road — Solace Bay Buying Group", owner: users.ops!, target_date: -10 },
     { slug: "saffron-1bhk", name: "Borivali East — Saffron 1 & 2 BHK Group", project: "saffron-terraces", target: 15, status: "COLLECTING_DEMAND", focus: [], visibility: "APPROXIMATE", headline: "Borivali East — First-home Buying Group", owner: users.ops!, target_date: 75 },
     { slug: "verdant-group", name: "Thane — Verdant Heights Group", project: "verdant-heights", target: 15, status: "COLLECTING_DEMAND", focus: [], visibility: "EXACT", headline: "Thane West — Verdant Heights Buying Group", owner: users.ops!, target_date: 90 },
-    { slug: "kanakia-example", name: "Borivali — Kanakia demand (unverified example)", project: "kanakia-borivali-example", target: 10, status: "COLLECTING_DEMAND", focus: [], visibility: "PRIVATE", headline: "Internal only", owner: users.admin!, target_date: 60, isPublic: false },
   ];
   const camp: Record<string, string> = {};
   for (const c of campaigns) {
@@ -358,7 +360,7 @@ async function main() {
 
   // planned demand per campaign: [campaign, count, tier weights]
   const plan: [string, number][] = [
-    ["aurelian-2bhk", 13], ["aurelian-3bhk", 6], ["lumiere-collective", 14], ["northbay-group", 19], ["solace-bay-group", 12], ["saffron-1bhk", 9], ["verdant-group", 7], ["kanakia-example", 6],
+    ["aurelian-2bhk", 13], ["aurelian-3bhk", 6], ["lumiere-collective", 14], ["northbay-group", 19], ["solace-bay-group", 12], ["saffron-1bhk", 9], ["verdant-group", 7],
   ];
   const buyerIds: string[] = [];
   let n = 0;
@@ -620,9 +622,9 @@ async function main() {
       {
         key: "business",
         value: {
-          companyName: "Ekatra Realty (demo)",
+          companyName: "EstateIQ Realty (demo)",
           tagline: "Collective homebuying, Mumbai",
-          email: "hello@ekatra.example",
+          email: "hello@estateiq.example",
           phone: "+91 22 0000 0000",
           address: "Demo office, Borivali West, Mumbai 400092",
           agentReraNumber: "",
@@ -638,7 +640,7 @@ async function main() {
     buyers: await db.buyer.count(), campaigns: await db.campaign.count(), visits: await db.siteVisit.count(), commissions: await db.commission.count(),
   };
   console.log("Seeded demo data:", counts);
-  console.log(`Team login: admin@ekatra.demo / ${password} (also ops@, riya@, arjun@, analyst@)`);
+  console.log(`Team login: admin@estateiq.demo / ${password} (also ops@, riya@, arjun@, analyst@)`);
 }
 
 main()

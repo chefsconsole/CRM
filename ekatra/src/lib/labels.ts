@@ -23,6 +23,7 @@ import type {
   TransactionStatus,
   VisitStatus,
 } from "@prisma/client";
+import type { ApprovalStatus, Confidentiality, InventoryAvailability, LifecycleStage, ResearchStatus, SourceType, SourceVerdict, Tier, Priority, Intent, BuyerSituation, FundingStatus, LoanRequirement, PropertyType, Furnishing, Occupancy } from "@prisma/client";
 import type { PublicGroupStage } from "./domain/demand";
 
 export type Tone = "neutral" | "gold" | "ink" | "positive" | "warning" | "danger" | "info" | "muted";
@@ -214,3 +215,138 @@ export const CONSENT_PURPOSE: Record<ConsentPurpose, string> = {
 };
 
 export const BHK_OPTIONS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 5];
+
+
+export const LIFECYCLE: L<LifecycleStage> = {
+  ANNOUNCED_BY_DEVELOPER: { label: "Announced by developer", tone: "info" },
+  PRE_LAUNCH_MARKETING: { label: "Pre-launch marketing", tone: "gold" },
+  MAHARERA_REGISTERED: { label: "MahaRERA registered", tone: "positive" },
+  OFFICIAL_LAUNCH: { label: "Officially launched", tone: "ink" },
+  BOOKINGS_OPEN: { label: "Bookings open", tone: "positive" },
+  UNDER_CONSTRUCTION: { label: "Under construction", tone: "neutral" },
+  COMPLETED_OC_RECEIVED: { label: "Completed / OC received", tone: "positive" },
+  SOLD_OUT: { label: "Sold out", tone: "muted" },
+  INVENTORY_NOT_CONFIRMED: { label: "Inventory not confirmed", tone: "warning" },
+};
+export const LIFECYCLE_STAGES = Object.keys(LIFECYCLE) as LifecycleStage[];
+
+export const RESEARCH_STATUS: L<ResearchStatus> = {
+  NOT_STARTED: { label: "Not started", tone: "muted" },
+  IN_PROGRESS: { label: "Research in progress", tone: "info" },
+  NEEDS_REVIEW: { label: "Needs review", tone: "warning" },
+  VERIFIED: { label: "Verified", tone: "positive" },
+  EXCLUDED: { label: "Excluded", tone: "danger" },
+};
+
+export const APPROVAL: L<ApprovalStatus> = {
+  PENDING: { label: "Pending approval", tone: "warning" },
+  APPROVED: { label: "Approved", tone: "positive" },
+  REJECTED: { label: "Rejected", tone: "danger" },
+};
+
+export const TIER: L<Tier> = {
+  A: { label: "Tier A", tone: "gold", hint: "Priority — strong developer, official evidence, commercially relevant." },
+  B: { label: "Tier B", tone: "info", hint: "Selective — credible, passed identity checks, needs more verification." },
+};
+
+export const SOURCE_TYPE: Record<SourceType, string> = {
+  OFFICIAL_DEVELOPER: "Official developer",
+  MAHARERA: "MahaRERA",
+  COMPANY_FILING: "Company filing",
+  GOVERNMENT: "Government",
+  NEWS: "News",
+  PORTAL: "Property portal",
+  INTERNAL: "Internal",
+};
+
+export const VERDICT: L<SourceVerdict> = {
+  CONFIRMED_OFFICIAL: { label: "Confirmed (official)", tone: "positive" },
+  DEVELOPER_ANNOUNCED: { label: "Developer-announced", tone: "info" },
+  SECONDARY_ONLY: { label: "Secondary source only", tone: "warning" },
+  CONFLICT: { label: "Conflict — review", tone: "danger" },
+  NOT_VERIFIED: { label: "Not yet verified", tone: "muted" },
+};
+
+export const AVAILABILITY: L<InventoryAvailability> = {
+  AVAILABLE: { label: "Available", tone: "positive" },
+  ON_HOLD: { label: "On hold", tone: "warning" },
+  UNDER_NEGOTIATION: { label: "Under negotiation", tone: "ink" },
+  SOLD: { label: "Sold", tone: "muted" },
+  WITHDRAWN: { label: "Withdrawn", tone: "muted" },
+  UNCONFIRMED: { label: "Availability unconfirmed", tone: "warning" },
+};
+
+export const CONFIDENTIALITY: Record<Confidentiality, string> = {
+  PUBLIC_WHEN_APPROVED: "Public once approved",
+  INTERNAL: "Internal team only",
+  RESTRICTED: "Restricted (admins & ops)",
+};
+
+export const PRIORITY: L<Priority> = {
+  A: { label: "A · Ready", tone: "gold" },
+  B: { label: "B · Active", tone: "ink" },
+  C: { label: "C · Future", tone: "info" },
+  D: { label: "D · Exploring", tone: "muted" },
+};
+
+export const INTENT: Record<Intent, { label: string; short: string; hint: string }> = {
+  RES_SELF_USE: { label: "A home to live in", short: "Home (self-use)", hint: "Residential purchase for your family" },
+  RES_INVESTMENT: { label: "A home as an investment", short: "Home (investment)", hint: "Residential purchase for rental or appreciation" },
+  COM_OFFICE: { label: "Office space to buy", short: "Office purchase", hint: "Offices, business premises, managed offices" },
+  COM_RETAIL: { label: "A shop or showroom to buy", short: "Retail purchase", hint: "High-street retail and showrooms" },
+  COM_INVESTMENT: { label: "Commercial investment", short: "Commercial investment", hint: "Commercial units bought for income" },
+  PRE_LEASED: { label: "Pre-leased property", short: "Pre-leased", hint: "Already tenanted, with an existing lease" },
+  RENT_RESIDENTIAL: { label: "A home to rent", short: "Rent a home", hint: "Monthly rental for living" },
+  RENT_COMMERCIAL: { label: "An office or shop to rent", short: "Rent commercial", hint: "Lease an office, shop or showroom" },
+  PLOT: { label: "Land or a plot", short: "Plot", hint: "Where available" },
+};
+
+export const SITUATION: Record<BuyerSituation, string> = {
+  READY_TO_PURCHASE: "Ready to purchase",
+  COMPARING_SHORTLIST: "Comparing a few shortlisted projects",
+  WAITING_FOR_PRICE: "Waiting for better pricing",
+  WAITING_FOR_FUNDS: "Waiting for funds",
+  WAITING_FOR_LOAN: "Waiting for a home loan",
+  SELLING_ANOTHER_PROPERTY: "Selling another property first",
+  WAITING_FOR_EXISTING_POSSESSION: "Waiting for possession of an existing home",
+  EXPLORING: "Exploring without a fixed timeline",
+};
+
+export const FUNDING_STATUS: Record<FundingStatus, string> = {
+  READY: "Funds ready",
+  LOAN_IN_PROCESS: "Loan process underway",
+  EXPLORING_FINANCE: "Exploring financing",
+  NOT_ASSESSED: "Not yet assessed",
+};
+
+export const LOAN: Record<LoanRequirement, string> = { YES: "Yes", NO: "No", UNDECIDED: "Undecided" };
+
+export const PROPERTY_TYPE: Record<PropertyType, string> = {
+  APARTMENT: "Apartment",
+  PENTHOUSE: "Penthouse",
+  DUPLEX: "Duplex",
+  VILLA: "Villa",
+  PLOT: "Plot",
+  OFFICE: "Office",
+  RETAIL_SHOP: "Retail shop",
+  SHOWROOM: "Showroom",
+  BUSINESS_PREMISES: "Business premises",
+  COWORKING: "Managed / coworking office",
+  WAREHOUSE: "Warehouse",
+};
+
+export const FURNISHING: Record<Furnishing, string> = {
+  UNFURNISHED: "Unfurnished",
+  SEMI_FURNISHED: "Semi-furnished",
+  FURNISHED: "Furnished",
+  WARM_SHELL: "Warm shell",
+  BARE_SHELL: "Bare shell",
+  PLUG_AND_PLAY: "Plug & play",
+};
+
+export const OCCUPANCY: Record<Occupancy, string> = {
+  VACANT: "Vacant",
+  TENANT_OCCUPIED: "Tenant-occupied",
+  OWNER_OCCUPIED: "Owner-occupied",
+  UNDER_CONSTRUCTION: "Under construction",
+};

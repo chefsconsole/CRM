@@ -341,6 +341,73 @@ enum RequirementStatus {
   ARCHIVED
 }
 
+enum Tier {
+  A
+  B
+}
+
+/// Research workflow for a project record.
+enum ResearchStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  NEEDS_REVIEW
+  VERIFIED
+  EXCLUDED
+}
+
+/// Legal / commercial lifecycle. These stages are NOT interchangeable.
+enum LifecycleStage {
+  ANNOUNCED_BY_DEVELOPER
+  PRE_LAUNCH_MARKETING
+  MAHARERA_REGISTERED
+  OFFICIAL_LAUNCH
+  BOOKINGS_OPEN
+  UNDER_CONSTRUCTION
+  COMPLETED_OC_RECEIVED
+  SOLD_OUT
+  INVENTORY_NOT_CONFIRMED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum SourceType {
+  OFFICIAL_DEVELOPER
+  MAHARERA
+  COMPANY_FILING
+  GOVERNMENT
+  NEWS
+  PORTAL
+  INTERNAL
+}
+
+/// How strongly a fact is supported.
+enum SourceVerdict {
+  CONFIRMED_OFFICIAL
+  DEVELOPER_ANNOUNCED
+  SECONDARY_ONLY
+  CONFLICT
+  NOT_VERIFIED
+}
+
+enum InventoryAvailability {
+  AVAILABLE
+  ON_HOLD
+  UNDER_NEGOTIATION
+  SOLD
+  WITHDRAWN
+  UNCONFIRMED
+}
+
+enum Confidentiality {
+  PUBLIC_WHEN_APPROVED
+  INTERNAL
+  RESTRICTED
+}
+
 // ───────────────────────────── Team & auth ─────────────────────────────
 
 model User {
@@ -507,6 +574,31 @@ model Project {
   description            String?
   addressLine            String?
   category               ProjectCategory     @default(RESIDENTIAL)
+  /// Research & verification (see docs/RESEARCH.md)
+  marketingName          String?
+  legalPromoterName      String?
+  tier                   Tier?
+  tierReason             String?
+  researchStatus         ResearchStatus      @default(NOT_STARTED)
+  approvalStatus         ApprovalStatus      @default(PENDING)
+  lifecycleStages        LifecycleStage[]
+  reraStatusText         String?
+  declaredCompletionDate DateTime?
+  ocStatus               String?
+  brochureUrl            String?
+  officialPriceText      String?
+  priceSourceUrl         String?
+  priceSourceDate        DateTime?
+  priceInclusions        String?
+  bookingStatus          String?
+  inventoryStatus        String?
+  buyerSegments          String[]
+  budgetBandNote         String?
+  dueDiligence           String?
+  conflictFlag           Boolean             @default(false)
+  conflictNotes          String?
+  nextVerificationAt     DateTime?
+  market                 String?
   segment                PropertySegment     @default(RESIDENTIAL)
   dealType               DealType            @default(SALE)
   propertyType           PropertyType        @default(APARTMENT)
@@ -582,12 +674,89 @@ model Project {
   visits         SiteVisit[]
   documents      Document[]
   activities     Activity[]
+  sources        ResearchSource[]
+  inventory      InventoryUnit[]
 
   @@index([locationId])
+  @@index([tier, researchStatus])
   @@index([developerId])
   @@index([status])
   @@index([isPublished, complianceReviewed])
   @@index([segment, dealType])
+}
+
+/// Research audit trail: one row per checked fact, with its source and the date it was checked.
+model ResearchSource {
+  id         String        @id @default(cuid())
+  projectId  String
+  project    Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  factKey    String
+  claim      String
+  url        String?
+  sourceType SourceType
+  verdict    SourceVerdict
+  checkedAt  DateTime
+  checkedBy  String?
+  notes      String?
+  createdAt  DateTime      @default(now())
+
+  @@index([projectId, factKey])
+}
+
+/// Our own available flats — kept separate from developer launches and private by default.
+model InventoryUnit {
+  id                   String                @id @default(cuid())
+  reference            String                @unique
+  projectId            String?
+  project              Project?              @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectName          String
+  developerName        String?
+  microMarket          String
+  unitNumber           String?
+  configuration        String
+  bhk                  Float?
+  carpetArea           Float?
+  floor                String?
+  facing               String?
+  parking              String?
+  furnishing           String?
+  possessionDetails    String?
+  askingPrice          Float
+  askingIncludes       String?
+  askingExcludes       String?
+  /// Comparable current developer quote — used only when like-for-like.
+  builderQuote         Float?
+  builderQuoteDate     DateTime?
+  builderQuoteSource   String?
+  builderQuoteIncludes String?
+  builderQuoteExcludes String?
+  builderQuoteConfig   String?
+  builderQuoteCarpet   Float?
+  builderQuoteFloor    String?
+  /// Estimated additional costs to reach an all-in figure (null = unknown).
+  askingExtraCosts     Float?
+  builderExtraCosts    Float?
+  comparisonNotes      String?
+  availability         InventoryAvailability @default(UNCONFIRMED)
+  ownerSource          String?
+  contactName          String?
+  contactPhone         String?
+  contactEmail         String?
+  commercialTerms      String?
+  lastVerifiedAt       DateTime?
+  confidentiality      Confidentiality       @default(INTERNAL)
+  approvalStatus       ApprovalStatus        @default(PENDING)
+  isPublic             Boolean               @default(false)
+  nextFollowUpAt       DateTime?
+  photoUrls            String[]
+  documentIds          String[]
+  notes                String?
+  createdById          String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@index([availability, approvalStatus])
+  @@index([microMarket])
 }
 
 model ProjectConfiguration {

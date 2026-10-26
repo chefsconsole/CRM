@@ -1,8 +1,8 @@
 {
-  "name": "ekatra",
+  "name": "estateiq",
   "version": "0.1.0",
   "private": true,
-  "description": "Ekatra — collective homebuying platform and business command centre for Mumbai real estate.",
+  "description": "EstateIQ — collective homebuying platform and business command centre for Mumbai real estate.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

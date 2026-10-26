@@ -124,9 +124,9 @@ export function fieldErrors(err: z.ZodError): Record<string, string> {
 
 export const CONSENT_TEXT = {
   CONTACT_ABOUT_INQUIRY:
-    "I agree that Ekatra may contact me by phone or email about this inquiry. My details will not be shown publicly.",
+    "I agree that EstateIQ may contact me by phone or email about this inquiry. My details will not be shown publicly.",
   SHARE_WITH_DEVELOPER:
-    "When Ekatra presents group demand to the developer, it may share my configuration and budget range. My name and contact details are shared only after I agree separately.",
+    "When EstateIQ presents group demand to the developer, it may share my configuration and budget range. My name and contact details are shared only after I agree separately.",
   MARKETING_UPDATES: "Email me when there is a genuinely confirmed update on projects I follow.",
   WHATSAPP_MESSAGES: "I agree to receive messages about my inquiry on WhatsApp.",
 } as const;

@@ -13,7 +13,7 @@ export async function sendEmail(to: string, subject: string, body: string) {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: process.env.EMAIL_FROM ?? "Ekatra <hello@example.com>", to, subject, text: body }),
+      body: JSON.stringify({ from: process.env.EMAIL_FROM ?? "EstateIQ <hello@example.com>", to, subject, text: body }),
     });
     const ok = res.ok;
     await db.outboundMessage.create({
