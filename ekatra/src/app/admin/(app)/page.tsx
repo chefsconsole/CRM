@@ -3,6 +3,7 @@ import { ArrowRight, Sparkles, PhoneCall, Target, Handshake, ShieldAlert, Buildi
 import { requirePermission } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { getDashboard } from "@/lib/queries/dashboard";
+import { runSweep } from "@/lib/services/sweep";
 import { Kpi } from "@/components/admin/kpi";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Badge, LabelBadge } from "@/components/ui/badge";
@@ -17,6 +18,7 @@ export const metadata = { title: "Overview" };
 export default async function Overview({ searchParams }: { searchParams: Promise<{ denied?: string }> }) {
   const user = await requirePermission("dashboard:view");
   const { denied } = await searchParams;
+  await runSweep().catch(() => undefined);
   const d = await getDashboard(user);
   const hour = Number(new Date().toLocaleString("en-IN", { hour: "numeric", hour12: false, timeZone: "Asia/Kolkata" }));
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
