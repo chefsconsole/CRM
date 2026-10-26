@@ -35,7 +35,7 @@ export default async function UnitPage({ params }: { params: Promise<{ id: strin
     db.document.findMany({ where: { id: { in: u.documentIds } }, select: { id: true, title: true, createdAt: true } }),
     db.buyer.findMany({
       where: { anonymizedAt: null, stage: { notIn: ["CONVERTED", "LOST"] } },
-      select: { id: true, fullName: true, priority: true, phoneNormalized: true, budgetMin: true, budgetMax: true, preferredConfigs: true, locationPreferences: { select: { location: { select: { name: true } } } }, requirements: { where: { status: "ACTIVE" }, take: 1, orderBy: { updatedAt: "desc" }, select: { budgetStretch: true, configurations: true, carpetMin: true, commitWithinDays: true, intents: true } } },
+      select: { id: true, fullName: true, priority: true, phoneNormalized: can(user.role, "buyers:pii"), budgetMin: true, budgetMax: true, preferredConfigs: true, locationPreferences: { select: { location: { select: { name: true } } } }, requirements: { where: { status: "ACTIVE" }, take: 1, orderBy: { updatedAt: "desc" }, select: { budgetStretch: true, configurations: true, carpetMin: true, commitWithinDays: true, intents: true } } },
     }),
   ]);
   const v = piiView(user);

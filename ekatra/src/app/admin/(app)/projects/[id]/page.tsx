@@ -425,7 +425,7 @@ async function DemandTab({ projectId, campaigns }: { projectId: string; campaign
 
 async function MatchesTab({ projectId, userRole }: { projectId: string; userRole: Parameters<typeof piiView>[0] }) {
   const prop = toMatchProperty(await db.project.findUniqueOrThrow({ where: { id: projectId }, select: matchPropertySelect }));
-  const reqs = await db.buyerRequirement.findMany({ where: { status: "ACTIVE", buyer: { anonymizedAt: null, stage: { notIn: ["CONVERTED", "LOST"] } } }, include: { buyer: { select: { id: true, fullName: true, priority: true, phoneNormalized: true } } } });
+  const reqs = await db.buyerRequirement.findMany({ where: { status: "ACTIVE", buyer: { anonymizedAt: null, stage: { notIn: ["CONVERTED", "LOST"] } } }, include: { buyer: { select: { id: true, fullName: true, priority: true, phoneNormalized: can(userRole.role, "buyers:pii") } } } });
   const v = piiView(userRole);
   const rows = reqs.map((r) => ({ r, m: matchProperty(toMatchRequirement(r), prop) })).filter((x) => x.m && x.m.eligible && x.m.score >= 60).sort((a, b) => b.m!.score - a.m!.score).slice(0, 40);
   return (

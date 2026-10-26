@@ -76,7 +76,8 @@ export async function listBuyers(filter: BuyerFilter, sort: string | undefined, 
     }),
   ]);
   const v = piiView(user);
-  return { total, rows: rows.map((r) => ({ ...r, phoneDisplay: v.phone(r.phoneNormalized), emailDisplay: v.email(r.email) })) };
+  // Raw contact fields never leave the server: rows are serialised to a client component.
+  return { total, rows: rows.map(({ phoneNormalized, email, ...r }) => ({ ...r, phoneDisplay: v.phone(phoneNormalized), emailDisplay: v.email(email) })) };
 }
 export type BuyerRow = Awaited<ReturnType<typeof listBuyers>>["rows"][number];
 

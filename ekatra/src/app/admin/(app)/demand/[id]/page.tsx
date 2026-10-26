@@ -47,7 +47,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
     db.campaignMember.findMany({
       where: { campaignId: c.id },
       orderBy: { joinedAt: "desc" },
-      include: { buyer: { select: { id: true, fullName: true, phoneNormalized: true, priority: true, stage: true, anonymizedAt: true, interests: { where: { projectId: c.projectId }, select: { id: true, tier: true, configurations: true, budgetMin: true, budgetMax: true, status: true } }, requirements: { where: { status: "ACTIVE" }, take: 1, orderBy: { updatedAt: "desc" }, select: { commitWithinDays: true } } } } },
+      include: { buyer: { select: { id: true, fullName: true, phoneNormalized: can(user.role, "buyers:pii"), priority: true, stage: true, anonymizedAt: true, interests: { where: { projectId: c.projectId }, select: { id: true, tier: true, configurations: true, budgetMin: true, budgetMax: true, status: true } }, requirements: { where: { status: "ACTIVE" }, take: 1, orderBy: { updatedAt: "desc" }, select: { commitWithinDays: true } } } } },
     }),
     db.user.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     db.buyer.findMany({ where: { anonymizedAt: null, campaignMemberships: { none: { campaignId: c.id } }, OR: [{ interests: { some: { projectId: c.projectId } } }, { locationPreferences: { some: { location: { name: c.project.location.name } } } }] }, orderBy: { fullName: "asc" }, take: 200, select: { id: true, fullName: true } }),
