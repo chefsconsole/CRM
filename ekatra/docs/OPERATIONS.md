@@ -26,3 +26,21 @@ Call `POST /api/cron/sweep` with `Authorization: Bearer $CRON_SECRET` every hour
 - **Admin → Settings → Audit** records logins, exports, erasures, price changes, approvals and setting changes.
 - `/admin/notifications` shows rule-driven alerts. Adjust the rules in Settings.
 - The rate limiter is in memory (one instance). When you run several instances, replace `src/lib/rate-limit.ts` with Redis or Upstash.
+
+## Follow-ups and time zone
+
+- Every follow-up is a record: open, done (with what happened) or cancelled. It can belong to a buyer, a developer, an inventory unit or a negotiation, or be a general task.
+- The "next follow-up" date shown on a buyer, developer, unit or negotiation is always the earliest open follow-up for that record. Setting the field creates or moves its follow-up; clearing it cancels that follow-up.
+- Marking a buyer *Converted* or *Lost* cancels their open follow-ups.
+- **Follow-ups** (sidebar) has tabs for Overdue, Due today, Upcoming, Completed and Cancelled (the last two cover 30 days). "Start here" shows the most urgent item: buyer priority A first, then the longest overdue. Completing a follow-up records the outcome and can schedule the next date in the same step.
+- All business dates are **Asia/Kolkata (IST)**. Form dates are read as IST whatever the server's timezone, and "today" and "overdue" use IST day boundaries.
+
+## Approval gates (summary)
+
+| Record | Shown publicly only when |
+|---|---|
+| Project | Evidence approved by a manager, compliance reviewed, published |
+| Inventory unit | Approved, marked public, available, verified in the last 30 days. Owner, contacts, unit number and terms are never shown |
+| Price saving on a unit | The comparison is meaningful (current, dated, sourced, like-for-like) **and** a manager accepted the evidence |
+| Group benefit / offer | Confirmed with who confirmed it, written evidence, the exact terms and a future validity date |
+| Buying group | A project campaign, marked public, on an approved and published project |

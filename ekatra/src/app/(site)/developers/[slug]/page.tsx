@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PUBLIC_PROJECT_WHERE } from "@/lib/domain/compliance";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { getProjectCards } from "@/lib/queries/public";
@@ -7,13 +8,13 @@ import { Verified } from "@/components/ui/misc";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const d = await db.developer.findFirst({ where: { slug: (await params).slug, isPublic: true }, select: { name: true } });
+  const d = await db.developer.findFirst({ where: { slug: (await params).slug, isPublic: true, isUnverifiedRealName: false, projects: { some: PUBLIC_PROJECT_WHERE } }, select: { name: true } });
   return { title: d?.name ?? "Developer" };
 }
 
 export default async function DeveloperPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const d = await db.developer.findFirst({ where: { slug, isPublic: true, isUnverifiedRealName: false }, select: { name: true, description: true, website: true, established: true, verification: true } });
+  const d = await db.developer.findFirst({ where: { slug, isPublic: true, isUnverifiedRealName: false, projects: { some: PUBLIC_PROJECT_WHERE } }, select: { name: true, description: true, website: true, established: true, verification: true } });
   if (!d) notFound();
   const cards = await getProjectCards({ mode: "all", developer: slug });
   return (

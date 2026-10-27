@@ -29,6 +29,7 @@ export function modeOf(p: { segment: PropertySegment; dealType: DealType }): Mod
 
 const cardSelect = {
   id: true,
+  priceSourceDate: true,
   slug: true,
   name: true,
   tagline: true,
@@ -108,12 +109,16 @@ function toCard(row: CardRow, groups: PublicGroup[]) {
   const rents = row.configurations.flatMap((c) => [c.rentMin, c.rentMax]).filter((v): v is number => !!v);
   const areas = row.configurations.flatMap((c) => [c.carpetAreaMin, c.carpetAreaMax]).filter((v): v is number => !!v);
   const priceMin = prices.length ? Math.min(...prices) : null;
+  // How trustworthy the "from" price is: the verification of the configuration it comes from.
+  const entry = [...row.configurations].filter((c) => c.priceMin).sort((a, b) => a.priceMin! - b.priceMin!)[0];
+  const priceStatus = entry ? entry.priceVerification : null;
   return {
     ...row,
     mode: modeOf(row),
     image: row.media[0]?.url ?? null,
     priceMin,
     priceMax: prices.length ? Math.max(...prices) : null,
+    priceStatus,
     rentMin: rents.length ? Math.min(...rents) : null,
     rentMax: rents.length ? Math.max(...rents) : null,
     areaMin: areas.length ? Math.min(...areas) : null,

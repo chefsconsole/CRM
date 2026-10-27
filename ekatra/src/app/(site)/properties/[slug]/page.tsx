@@ -38,7 +38,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
   const plans = d.media.filter((m) => m.kind === "FLOOR_PLAN");
   const brochures = d.media.filter((m) => m.kind === "BROCHURE");
   const benefits = d.benefits.map((b) => ({ ...b, eff: effectiveBenefitStatus(b) }));
-  const confirmed = benefits.filter((b) => isLiveConfirmed(b));
+  // Offers are shown only with their confirmed terms and validity.
+  const confirmed = benefits.filter((b) => isLiveConfirmed(b) && !!b.description);
   const negotiating = benefits.filter((b) => b.eff === "UNDER_NEGOTIATION");
   const price = rent ? (p.rentMin ? `${formatPriceRange(p.rentMin, p.rentMax)} / month` : "Rent on request") : formatPriceRange(p.priceMin, p.priceMax);
   const interest = { id: p.id, name: p.name, segment: p.segment, dealType: p.dealType, locationId: d.location.id, bhks: p.bhks, priceMin: p.priceMin, priceMax: p.priceMax, groupName: g?.headline };
@@ -95,7 +96,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
             </Reveal>
 
             <section className="mt-14" aria-labelledby="configs">
-              <h2 id="configs" className="font-serif text-4xl text-ink-900">{rent ? "Units & rent" : "Configurations & indicative prices"}</h2>
+              <h2 id="configs" className="font-serif text-4xl text-ink-900">{rent ? "Units & rent" : "Configurations & prices"}</h2>
               <p className="mt-2 text-[13.5px] text-stone-500">Areas are <strong>carpet area</strong> (not built-up or saleable). {rent ? "Rents exclude maintenance and deposit." : "Starting prices are not all-inclusive."}</p>
               <div className="mt-6 overflow-hidden rounded-3xl border border-ink-900/[0.07] bg-white">
                 <table className="w-full text-left text-[14px]">
@@ -171,14 +172,15 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
 
             <section className="mt-14 rounded-3xl bg-ivory-100 p-6 text-[12.5px] leading-relaxed text-stone-600">
               <p className="flex items-center gap-2 font-semibold text-ink-900"><ShieldCheck className="size-4 text-gold-600" /> Before you decide</p>
-              <p className="mt-2">All prices are indicative and are not offers. Starting prices exclude stamp duty, registration, GST and other charges. Verify the MahaRERA registration and all project details with the developer and the official MahaRERA portal. Registering interest does not commit you to buy; reaching a group target does not guarantee a discount, allocation or transaction. {images.length ? "Images are illustrative." : ""}</p>
+              <p className="mt-2">Prices marked “Verified” were checked against the developer's official price sheet on the date shown; all other prices are indicative. No price is an offer. Starting prices exclude stamp duty, registration, GST and other charges. Verify the MahaRERA registration and all project details with the developer and the official MahaRERA portal. Registering interest does not commit you to buy; reaching a group target does not guarantee a discount, allocation or transaction. {images.length ? "Images are illustrative." : ""}</p>
             </section>
           </div>
 
           {/* Sticky panel */}
           <aside className="lg:sticky lg:top-24 lg:self-start">
             <div className="rounded-[28px] border border-ink-900/[0.07] bg-white p-6 shadow-lift">
-              <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-stone-500">{rent ? "Monthly rent" : "Indicative price"}</p>
+              <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-stone-500">{rent ? "Monthly rent" : p.priceStatus === "VERIFIED" ? "Verified starting price" : "Indicative price"}</p>
+              {!rent && <p className="text-[11.5px] text-stone-500">{p.priceStatus === "VERIFIED" ? `From the developer's official price sheet${p.priceSourceDate ? ` · ${formatDate(p.priceSourceDate)}` : ""}` : p.priceStatus === "OUTDATED" ? "May be outdated — please confirm" : "Approximate figure — not an offer"}</p>}
               <p className="num mt-1 font-serif text-4xl text-ink-900">{price}</p>
               <p className="mt-1 text-[12.5px] text-stone-500">{p.bhks.length ? p.bhks.map(formatBhk).join(" · ") : PROPERTY_TYPE[p.propertyType]} {p.areaMin ? `· ${formatArea(p.areaMin, p.areaMax)} carpet` : ""}</p>
               <div className="mt-6"><InterestButton project={interest} sticky /></div>

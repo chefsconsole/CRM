@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PUBLIC_PROJECT_WHERE } from "@/lib/domain/compliance";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getBuyerSession } from "@/lib/auth";
@@ -36,8 +37,9 @@ export default async function Account({ searchParams }: { searchParams: Promise<
   const b = await db.buyer.findUniqueOrThrow({
     where: { id: me.id },
     include: {
-      savedProjects: { include: { project: { select: { slug: true, name: true, isPublished: true, complianceReviewed: true, location: { select: { name: true } }, media: { where: { isPrimary: true }, take: 1, select: { url: true } } } } } },
-      interests: { orderBy: { createdAt: "desc" }, include: { project: { select: { name: true, slug: true } } } },
+      savedProjects: { include: { project: { select: { slug: true, name: true, isPublished: true, complianceReviewed: true, approvalStatus: true, location: { select: { name: true } }, media: { where: { isPrimary: true }, take: 1, select: { url: true } } } } } },
+      // Only inquiries about projects that are currently approved and public are listed by name.
+      interests: { where: { project: PUBLIC_PROJECT_WHERE }, orderBy: { createdAt: "desc" }, include: { project: { select: { name: true, slug: true } } } },
       visits: { orderBy: { createdAt: "desc" }, include: { project: { select: { name: true } } } },
       requirements: { where: { status: "ACTIVE" }, orderBy: { updatedAt: "desc" } },
       consents: { orderBy: { createdAt: "desc" } },
@@ -56,7 +58,7 @@ export default async function Account({ searchParams }: { searchParams: Promise<
           <section className="rounded-[28px] border border-ink-900/[0.07] bg-white p-6">
             <h2 className="font-serif text-2xl text-ink-900">Saved projects</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {b.savedProjects.filter((s) => s.project.isPublished && s.project.complianceReviewed).map((s) => (
+              {b.savedProjects.filter((s) => s.project.isPublished && s.project.complianceReviewed && s.project.approvalStatus === "APPROVED").map((s) => (
                 <Link key={s.projectId} href={`/properties/${s.project.slug}`} className="flex gap-3 rounded-2xl bg-ivory-100 p-3 hover:bg-ivory-200"><PropertyImage src={s.project.media[0]?.url} alt={s.project.name} seed={s.project.slug} className="size-16 shrink-0 rounded-xl" /><span><span className="block font-medium text-ink-900">{s.project.name}</span><span className="text-[12.5px] text-stone-500">{s.project.location.name}</span></span></Link>
               ))}
             </div>

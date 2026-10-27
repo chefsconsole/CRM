@@ -56,7 +56,7 @@ export function ProjectCardView({ c, priority, className }: { c: Card; priority?
         <div className="mt-4 flex items-baseline justify-between gap-3 border-t border-ink-900/[0.06] pt-4">
           <div>
             <p className="num text-[19px] font-semibold tracking-tight text-ink-900">{priceLine(c)}</p>
-            <p className="mt-0.5 text-[11.5px] text-stone-500" title={VERIFICATION.INDICATIVE.hint}>Indicative · {typeLine(c)}{c.areaMin ? ` · ${formatArea(c.areaMin, c.areaMax)} carpet` : ""}</p>
+            <p className="mt-0.5 text-[11.5px] text-stone-500" title={VERIFICATION[c.priceStatus ?? "INDICATIVE"].hint}>{priceStatusLabel(c.priceStatus, c.priceSourceDate)} · {typeLine(c)}{c.areaMin ? ` · ${formatArea(c.areaMin, c.areaMax)} carpet` : ""}</p>
           </div>
         </div>
         <div className="mt-auto flex items-center justify-between gap-3 pt-4 text-[12px]">
@@ -102,4 +102,11 @@ export function ProjectRow({ c }: { c: Card }) {
 
 export function formatCrShort(v: number | null) {
   return v ? formatINR(v) : "—";
+}
+
+/** "Verified price (12 Oct 2026)" only when the starting price was checked against an official source; otherwise "Indicative". */
+export function priceStatusLabel(status: keyof typeof VERIFICATION | null, asOf: Date | null): string {
+  if (status === "VERIFIED") return `Verified price${asOf ? ` · ${new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }).format(asOf)}` : ""}`;
+  if (status === "OUTDATED") return "Price may be outdated";
+  return "Indicative";
 }

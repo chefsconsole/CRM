@@ -7,7 +7,7 @@ EstateIQ gathers serious buyers for a project (for example ten families who want
 | | |
 |---|---|
 | **Buyer site** (`/`) | Atlys-style search, a map and list of projects, project pages with a live buying-group panel, a 6-step interest flow, a smart requirement match (`/match`), groups, locations, developers, compare and a buyer account with an emailed sign-in code |
-| **Admin** (`/admin`) | Overview dashboard, Projects (with price history and a research review queue), Available Inventory, Buyers (filters, saved segments, pipeline, export), Demand Campaigns (Demand Studio), Developers, negotiations, Follow-ups, Reports, commissions, settings, ⌘K global search and quick add |
+| **Admin** (`/admin`) | Overview; Projects (prices with history, fact-by-fact evidence review, approve / reject); **Available Inventory** (your private flats, CSV import with preview, reviewed price comparisons); Buyers (filters, saved segments, pipeline, export); **Demand Studio** (campaigns around a project, locality or buyer segment); **Developers** (contacts with sources, negotiations, proposed vs agreed terms, agreements); **Follow-ups** (one list for everything, IST); Commissions (expected vs received); Reports; Settings; ⌘K search and quick add |
 
 ## Run it locally
 
@@ -43,14 +43,14 @@ The **research dataset** (real Mumbai projects, `prisma/research-data.ts`) is di
 
 ```bash
 createdb ekatra_test              # once; the tests refuse any database not named *_test
-npm test                          # 66 unit + integration tests
+npm test                          # 93 unit + integration tests
 npm run typecheck && npm run build
 ```
 
 The tests cover:
-- **Calculations:** commissions (rates, slabs, splits, GST/TDS, payment overshoot), demand metrics and milestones, matching and its hard constraints, A–D priority, group suggestions, inventory comparison, rental yield, INR formatting.
+- **Calculations:** commissions (rates, slabs, splits, GST/TDS, payment overshoot), demand metrics and milestones, Demand Studio insights (unique counts, readiness, budget fit, next action), matching and its hard constraints, A–D priority, group suggestions, inventory comparison and review rules, CSV import planning (Indian amounts and dates, duplicates), research evidence and approval blockers, rental yield, INR formatting.
 - **Permissions and filters:** RBAC rules and combinable buyer filters.
-- **End-to-end flows against Postgres:** inquiry de-duplication, the unique campaign count, price history, commission double-count prevention, visit clashes, public privacy and buyer erasure.
+- **End-to-end flows against Postgres:** inquiry de-duplication, the unique campaign count, price history, commission double-count prevention, visit clashes, public privacy and buyer erasure, follow-up syncing, locality campaigns, and the rule that public pages need approval.
 
 ## Project layout
 

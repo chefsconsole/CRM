@@ -7,7 +7,7 @@
 - **Tier A** — strong reason to start collecting demand now (credible developer, an official announcement or filing, buyer appeal in the target market).
 - **Tier B** — worth tracking; something is missing (launch timing, promoter clarity, litigation, unconfirmed RERA).
 - **Untiered** — kept for reference; too little is confirmed to rank it.
-- **Source verdicts** — `CONFIRMED` (official/primary source says it), `DEVELOPER_ANNOUNCED` (developer or a filing says it's coming, not yet registered/launched), `REPORTED` (news/portal only), `CONFLICTING` (sources disagree), `UNKNOWN`.
+- **Source verdicts** — `CONFIRMED_OFFICIAL` (an official record — MahaRERA, the developer, a filing — says it), `DEVELOPER_ANNOUNCED` (the developer or a filing says it is coming; not yet registered or launched), `SECONDARY_ONLY` (news or portals only), `CONFLICT` (sources disagree), `NOT_VERIFIED` (could not be checked).
 - **Candidate RERA numbers** were found on portals or in search snippets. They are stored as text in `reraStatusText`, **not** as verified RERA numbers. A number is stored in the `reraNumber` field only when an official developer page printed it, and even then it still needs a MahaRERA check.
 
 ## Borivali West & Kandivali West
@@ -189,6 +189,14 @@
 - Due diligence: Approve scope; track launch and registration.
 - Sources:
   - [DEVELOPER_ANNOUNCED] 15-acre Kandivali East acquisition; GDV ~₹5,600 Cr — https://www.mahindra.com/news-room/press-release/en/mahindra-lifespaces-acquires-15-acre-land-parcel-in-kandivali-east-with-gross-development-value-gdv-of-rs-5600-crore
+
+## How a project gets approved in EstateIQ
+
+Open a project → **Research & sources** to see the *Evidence review*: every material fact (official name and developer, exact location, official URL, MahaRERA registration, configurations, carpet areas, declared completion date, price) with the strongest source behind it, and every lifecycle status with the evidence it needs (e.g. “MahaRERA registered” needs the MahaRERA record itself; “Inventory availability confirmed” needs the developer's sales team, dated).
+
+**Review & publish** lists every blocker. A manager can approve only when every recorded fact is sourced, MahaRERA is confirmed on the official record with its URL, statuses have the right evidence and don't contradict each other, the conflict flag is cleared and no outstanding checks remain. Rejecting needs a reason. Publishing additionally needs the compliance review. The public site only shows approved, compliance-reviewed, published projects.
+
+Every imported record carries its **access limitation** (web search only; developer sites and MahaRERA blocked) and a list of **outstanding checks**, both editable on the Research tab.
 
 ## Leads investigated and excluded
 
