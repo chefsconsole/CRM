@@ -23,6 +23,8 @@ export default async function DevelopersPage({ searchParams }: { searchParams: P
     orderBy: [{ nextFollowUpAt: { sort: "asc", nulls: "last" } }, { name: "asc" }],
     include: { relationshipOwner: { select: { name: true } }, _count: { select: { projects: true, negotiations: true, contacts: true } }, agreements: { where: { status: "SIGNED" }, select: { id: true } } },
   });
+  const touches = await db.activity.groupBy({ by: ["developerId"], where: { developerId: { not: null }, type: { not: "STAGE_CHANGE" } }, _max: { createdAt: true } });
+  const lastTouch = new Map(touches.map((t) => [t.developerId!, t._max.createdAt]));
   const negotiations = commercial && tab === "negotiations" ? await db.negotiation.findMany({ orderBy: [{ nextActionAt: { sort: "asc", nulls: "last" } }], include: { developer: { select: { name: true } }, project: { select: { name: true } }, owner: { select: { name: true } } } }) : [];
   const tabs = [{ k: "pipeline", l: "Relationship pipeline" }, { k: "list", l: "All developers" }, ...(commercial ? [{ k: "negotiations", l: "Negotiations" }] : [])];
   return (
@@ -58,7 +60,7 @@ export default async function DevelopersPage({ searchParams }: { searchParams: P
 
       {tab === "list" && (
         <TableShell>
-          <thead className="border-b border-ink-900/5 bg-ivory-50/60"><tr><Th>Developer</Th><Th>Stage</Th><Th>Projects</Th><Th>Contacts</Th><Th>Owner</Th><Th>Next follow-up</Th>{commercial && <Th>Agreement</Th>}</tr></thead>
+          <thead className="border-b border-ink-900/5 bg-ivory-50/60"><tr><Th>Developer</Th><Th>Stage</Th><Th>Projects</Th><Th>Contacts</Th><Th>Owner</Th><Th>Last interaction</Th><Th>Next follow-up</Th>{commercial && <Th>Agreement</Th>}</tr></thead>
           <tbody className="divide-y divide-ink-900/5">
             {devs.map((d) => (
               <tr key={d.id} className="hover:bg-ivory-50">
@@ -67,7 +69,8 @@ export default async function DevelopersPage({ searchParams }: { searchParams: P
                 <td className="num px-4 py-3">{d._count.projects}</td>
                 <td className="num px-4 py-3">{d._count.contacts}</td>
                 <td className="px-4 py-3 text-[13px] text-stone-600">{d.relationshipOwner?.name ?? "—"}</td>
-                <td className="px-4 py-3 text-[13px] text-stone-600">{d.nextFollowUpAt ? formatDate(d.nextFollowUpAt) : "—"}</td>
+                <td className="px-4 py-3 text-[13px] text-stone-600">{lastTouch.get(d.id) ? relativeTime(lastTouch.get(d.id)!) : "—"}</td>
+                <td className={`px-4 py-3 text-[13px] ${d.nextFollowUpAt && d.nextFollowUpAt < new Date() ? "font-medium text-clay-600" : "text-stone-600"}`}>{d.nextFollowUpAt ? formatDate(d.nextFollowUpAt) : "—"}</td>
                 {commercial && <td className="px-4 py-3">{d.agreements.length ? <Badge tone="positive">Signed</Badge> : <span className="text-[12px] text-stone-400">None</span>}</td>}
               </tr>
             ))}

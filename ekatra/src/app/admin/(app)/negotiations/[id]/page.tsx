@@ -13,6 +13,7 @@ import { NEGOTIATION_STATUS, NEGOTIATION_UPDATE } from "@/lib/labels";
 import { formatDateTime, formatINR } from "@/lib/format";
 import { projectDemandSummary } from "@/lib/queries/demand-summary";
 import { CopyButton } from "@/components/admin/copy-button";
+import { FollowUpList } from "@/components/admin/follow-up-list";
 import { negotiationAction, negotiationUpdateAction } from "../../developers/actions";
 
 export const metadata = { title: "Negotiation" };
@@ -23,11 +24,12 @@ export default async function NegotiationPage({ params }: { params: Promise<{ id
   const n = await db.negotiation.findUnique({ where: { id }, include: { developer: { select: { id: true, name: true } }, project: { select: { id: true, name: true } }, updates: { orderBy: { createdAt: "desc" }, include: { author: { select: { name: true } } } }, agreements: true } });
   if (!n) notFound();
   const cw = can(user.role, "commercial:write");
-  const [projects, campaigns, users, summary] = await Promise.all([
+  const [projects, campaigns, users, summary, tasks] = await Promise.all([
     db.project.findMany({ where: { developerId: n.developerId }, select: { id: true, name: true } }),
     db.campaign.findMany({ where: { project: { developerId: n.developerId } }, select: { id: true, name: true } }),
     db.user.findMany({ where: { active: true }, select: { id: true, name: true } }),
     n.projectId ? projectDemandSummary(n.projectId) : Promise.resolve(null),
+    db.task.findMany({ where: { negotiationId: n.id }, orderBy: [{ status: "asc" }, { dueAt: "asc" }], take: 20, include: { assignee: { select: { name: true } } } }),
   ]);
   return (
     <div className="mx-auto max-w-[1400px]">
@@ -64,6 +66,7 @@ export default async function NegotiationPage({ params }: { params: Promise<{ id
               {!n.updates.length && <li className="text-[13px] text-stone-500">No updates yet.</li>}
             </ol>
           </Card>
+          <FollowUpList title="Next actions" tasks={tasks} link={{ negotiationId: n.id, developerId: n.developerId }} users={users} canWrite={cw} defaultTitle={`Follow up on ${n.title}`} />
           <Card className="p-6 text-[13px]"><Field label="Linked agreements">{n.agreements.length ? n.agreements.map((a) => <p key={a.id}>{a.title} — {a.status.toLowerCase()}</p>) : <p className="text-stone-500">None. Record one on the developer page.</p>}</Field></Card>
         </div>
       </div>

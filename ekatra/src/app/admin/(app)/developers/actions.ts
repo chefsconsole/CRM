@@ -12,6 +12,7 @@ import { audit } from "@/lib/audit";
 import { notify } from "@/lib/notify";
 import { putObject, ALLOWED_MIME } from "@/lib/storage";
 import { DEVELOPER_STAGES } from "@/lib/labels";
+import { createFollowUp, setNextFollowUp } from "@/lib/services/followups";
 
 const stageEnum = z.enum(DEVELOPER_STAGES as [DeveloperStage, ...DeveloperStage[]]);
 const optUrl = (v: string | null) => (v ? z.string().url("Enter a full URL").parse(v) : null);
@@ -32,14 +33,16 @@ export async function saveDeveloperAction(_: ActionState, form: FormData): Promi
       stage: stageEnum.parse(fd.str(form, "stage") ?? "RESEARCHING"),
       verification: (fd.str(form, "verification") ?? "AWAITING_VERIFICATION") as "VERIFIED",
       relationshipOwnerId: fd.str(form, "relationshipOwnerId"),
-      nextFollowUpAt: fd.date(form, "nextFollowUpAt"),
       notes: fd.str(form, "notes"),
       isPublic: fd.bool(form, "isPublic"),
     };
     const devId = fd.str(form, "developerId");
+    const nextFollowUpAt = fd.date(form, "nextFollowUpAt");
+    const followUp = { title: `Follow up with ${name}`, assigneeId: data.relationshipOwnerId ?? user.id };
     if (devId) {
       const before = await db.developer.findUniqueOrThrow({ where: { id: devId } });
       await db.developer.update({ where: { id: devId }, data });
+      await setNextFollowUp({ developerId: devId }, nextFollowUpAt, followUp);
       if (before.stage !== data.stage) await db.activity.create({ data: { type: "STAGE_CHANGE", title: `Relationship: ${before.stage.replace(/_/g, " ").toLowerCase()} → ${data.stage.replace(/_/g, " ").toLowerCase()}`, developerId: devId, actorId: user.id } });
       await audit(user, "developer.update", "Developer", devId);
       revalidatePath(`/admin/developers/${devId}`);
@@ -50,6 +53,7 @@ export async function saveDeveloperAction(_: ActionState, form: FormData): Promi
     let slug = slugify(name) || "developer";
     for (let i = 2; await db.developer.findUnique({ where: { slug } }); i++) slug = `${slugify(name)}-${i}`;
     const d = await db.developer.create({ data: { ...data, slug } });
+    if (nextFollowUpAt) await setNextFollowUp({ developerId: d.id }, nextFollowUpAt, followUp);
     await audit(user, "developer.create", "Developer", d.id);
     id = d.id;
   } catch (e) {
@@ -79,11 +83,24 @@ export async function contactAction(_: ActionState, form: FormData): Promise<Act
     const developerId = z.string().cuid().parse(form.get("developerId"));
     if (form.get("op") === "delete") {
       await db.developerContact.delete({ where: { id: z.string().cuid().parse(form.get("contactId")), developerId } });
+    } else if (form.get("op") === "contacted") {
+      await db.developerContact.update({ where: { id: z.string().cuid().parse(form.get("contactId")), developerId }, data: { lastContactedAt: new Date() } });
     } else {
       const email = fd.str(form, "email");
       if (email) z.string().email("Enter a valid email.").parse(email);
       await db.developerContact.create({
-        data: { developerId, name: z.string().trim().min(2, "Enter the contact's name.").max(80).parse(form.get("name")), designation: fd.str(form, "designation"), email, phone: fd.str(form, "phone"), isSalesTeam: fd.bool(form, "isSalesTeam"), notes: fd.str(form, "notes") },
+        data: {
+          developerId,
+          name: z.string().trim().min(2, "Enter the contact's name.").max(80).parse(form.get("name")),
+          designation: fd.str(form, "designation"),
+          email,
+          phone: fd.str(form, "phone"),
+          isSalesTeam: fd.bool(form, "isSalesTeam"),
+          // Only legitimately sourced contacts: record where each one came from.
+          source: z.string().trim().min(3, "Say where this contact came from (e.g. business card at site office).").max(160).parse(form.get("source") ?? ""),
+          lastContactedAt: fd.date(form, "lastContactedAt"),
+          notes: fd.str(form, "notes"),
+        },
       });
     }
     revalidatePath(`/admin/developers/${developerId}`);
@@ -98,9 +115,13 @@ export async function developerNoteAction(_: ActionState, form: FormData): Promi
     const user = await assertPermission("developers:write");
     const developerId = z.string().cuid().parse(form.get("developerId"));
     const body = z.string().trim().min(2).max(2000).parse(form.get("body"));
-    await db.activity.create({ data: { type: (fd.str(form, "type") ?? "NOTE") as "NOTE", title: fd.str(form, "title") ?? "Note", body, developerId, actorId: user.id } });
+    const type = z.enum(["CALL", "EMAIL", "MESSAGE", "NOTE"]).parse(fd.str(form, "type") ?? "NOTE");
+    const title = fd.str(form, "title") ?? "Note";
+    await db.activity.create({ data: { type, title, body, developerId, actorId: user.id } });
+    const contactId = fd.str(form, "contactId");
+    if (contactId && type !== "NOTE") await db.developerContact.update({ where: { id: contactId, developerId }, data: { lastContactedAt: new Date() } });
     const next = fd.date(form, "nextFollowUpAt");
-    if (next) await db.developer.update({ where: { id: developerId }, data: { nextFollowUpAt: next } });
+    if (next) await createFollowUp({ developerId, title: fd.str(form, "nextAction") ?? `Follow up: ${title}`, dueAt: next, assigneeId: user.id });
     revalidatePath(`/admin/developers/${developerId}`);
     return { ok: true, message: "Logged." };
   } catch (e) {
@@ -148,14 +169,15 @@ export async function negotiationAction(_: ActionState, form: FormData): Promise
       paymentTimeline: fd.str(form, "paymentTimeline"),
       agreementSigned: fd.bool(form, "agreementSigned"),
       lastFollowUpAt: fd.date(form, "lastFollowUpAt"),
-      nextAction: fd.str(form, "nextAction"),
-      nextActionAt: fd.date(form, "nextActionAt"),
       ownerId: fd.str(form, "ownerId"),
     };
+    const nextAt = fd.date(form, "nextActionAt");
+    const nextTitle = fd.str(form, "nextAction") ?? `Negotiation follow-up — ${data.title}`;
     if (data.proposedCommissionRate !== null && (data.proposedCommissionRate <= 0 || data.proposedCommissionRate > 10)) throw new UserError("Commission rate should be between 0 and 10%.");
     if (negId) {
       const before = await db.negotiation.findUniqueOrThrow({ where: { id: negId } });
       await db.negotiation.update({ where: { id: negId }, data });
+      await setNextFollowUp({ negotiationId: negId, developerId: data.developerId }, nextAt, { title: nextTitle, assigneeId: data.ownerId ?? user.id });
       if (data.developerResponse && data.developerResponse !== before.developerResponse) {
         await db.negotiationUpdate.create({ data: { negotiationId: negId, kind: "DEVELOPER_RESPONSE", body: data.developerResponse, authorId: user.id } });
         await notify("developer.responded", { title: `Developer response: ${data.title}`, body: data.developerResponse.slice(0, 200), link: `/admin/negotiations/${negId}` });
@@ -165,6 +187,7 @@ export async function negotiationAction(_: ActionState, form: FormData): Promise
       return { ok: true, message: "Saved." };
     }
     const n = await db.negotiation.create({ data });
+    if (nextAt) await setNextFollowUp({ negotiationId: n.id, developerId: data.developerId }, nextAt, { title: nextTitle, assigneeId: data.ownerId ?? user.id });
     await db.developer.update({ where: { id: data.developerId }, data: { stage: "NEGOTIATING" } }).catch(() => undefined);
     await audit(user, "negotiation.create", "Negotiation", n.id);
     id = n.id;
@@ -182,7 +205,9 @@ export async function negotiationUpdateAction(_: ActionState, form: FormData): P
     const body = z.string().trim().min(3, "Add details.").max(3000).parse(form.get("body"));
     const n = await db.negotiation.findUniqueOrThrow({ where: { id: negotiationId } });
     await db.negotiationUpdate.create({ data: { negotiationId, kind, body, authorId: user.id } });
-    await db.negotiation.update({ where: { id: negotiationId }, data: { lastFollowUpAt: new Date(), ...(kind === "DEVELOPER_RESPONSE" ? { developerResponse: body } : {}), ...(fd.date(form, "nextActionAt") ? { nextActionAt: fd.date(form, "nextActionAt"), nextAction: fd.str(form, "nextAction") } : {}) } });
+    await db.negotiation.update({ where: { id: negotiationId }, data: { lastFollowUpAt: new Date(), ...(kind === "DEVELOPER_RESPONSE" ? { developerResponse: body } : {}) } });
+    const nextAt = fd.date(form, "nextActionAt");
+    if (nextAt) await createFollowUp({ negotiationId, developerId: n.developerId, title: fd.str(form, "nextAction") ?? `Negotiation follow-up — ${n.title}`, dueAt: nextAt, assigneeId: n.ownerId ?? user.id });
     if (kind === "DEVELOPER_RESPONSE") await notify("developer.responded", { title: `Developer response: ${n.title}`, body: body.slice(0, 200), link: `/admin/negotiations/${negotiationId}` });
     revalidatePath(`/admin/negotiations/${negotiationId}`);
     return { ok: true, message: "Update recorded." };
