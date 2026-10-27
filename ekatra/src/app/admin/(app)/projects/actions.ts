@@ -10,6 +10,7 @@ import { fail, fd, UserError, type ActionState } from "@/lib/action";
 import { saveConfiguration } from "@/lib/services/projects";
 import { slugify } from "@/lib/format";
 import { audit } from "@/lib/audit";
+import { approvalBlockers, FACT_KEYS, lifecycleProblems, RESEARCH_NOT_VERIFIED } from "@/lib/domain/research";
 import { putObject, ALLOWED_MIME } from "@/lib/storage";
 import { LIFECYCLE_STAGES } from "@/lib/labels";
 
@@ -95,6 +96,9 @@ export async function updateProjectAction(_: ActionState, form: FormData): Promi
         isFeatured: fd.bool(form, "isFeatured"),
       };
     } else if (section === "legal") {
+      const stages = fd.list(form, "lifecycleStages").filter((s): s is LifecycleStage => LIFECYCLE_STAGES.includes(s as LifecycleStage));
+      const contradictions = lifecycleProblems(stages).filter((x) => x.kind === "contradiction");
+      if (contradictions.length) throw new UserError(contradictions.map((x) => x.message).join(" "));
       const reraUrl = fd.str(form, "reraUrl");
       const officialWebsite = fd.str(form, "officialWebsite");
       const brochureUrl = fd.str(form, "brochureUrl");
@@ -106,7 +110,7 @@ export async function updateProjectAction(_: ActionState, form: FormData): Promi
         reraStatusText: fd.str(form, "reraStatusText"),
         officialWebsite,
         brochureUrl,
-        lifecycleStages: fd.list(form, "lifecycleStages").filter((s): s is LifecycleStage => LIFECYCLE_STAGES.includes(s as LifecycleStage)),
+        lifecycleStages: stages,
         launchDate: fd.date(form, "launchDate"),
         launchVerification: verif.parse(fd.str(form, "launchVerification") ?? "UNAVAILABLE"),
         possessionDate: fd.date(form, "possessionDate"),
@@ -214,7 +218,7 @@ export async function addSourceAction(_: ActionState, form: FormData): Promise<A
     await db.researchSource.create({
       data: {
         projectId,
-        factKey: z.string().trim().min(1).max(40).parse(form.get("factKey")),
+        factKey: z.enum(FACT_KEYS).parse(form.get("factKey")),
         claim: z.string().trim().min(3, "Describe what the source says.").max(500).parse(form.get("claim")),
         url: u,
         sourceType: z.enum(["OFFICIAL_DEVELOPER", "MAHARERA", "COMPANY_FILING", "GOVERNMENT", "NEWS", "PORTAL", "INTERNAL"]).parse(form.get("sourceType")),
@@ -242,10 +246,12 @@ export async function researchDecisionAction(_: ActionState, form: FormData): Pr
     const tierRaw = fd.str(form, "tier");
     const tier = tierRaw ? z.enum(["A", "B"]).parse(tierRaw) : null;
     const conflictFlag = fd.bool(form, "conflictFlag");
-    const p = await db.project.findUniqueOrThrow({ where: { id: projectId }, include: { sources: true } });
+    const p = await loadResearch(projectId);
     if (status === "VERIFIED") {
-      if (!p.sources.some((s) => s.verdict === "CONFIRMED_OFFICIAL")) throw new UserError("Add at least one source confirmed on an official record (e.g. MahaRERA) before marking the project verified.");
-      if (conflictFlag) throw new UserError("Resolve and clear the conflict flag before marking the project verified.");
+      // "Verified" means every material fact is sourced, MahaRERA is confirmed on the official record,
+      // statuses have the right evidence and nothing is outstanding.
+      const blockers = approvalBlockers({ ...p.research, conflictFlag, researchStatus: "VERIFIED" }, p.sources).filter((b) => b !== RESEARCH_NOT_VERIFIED);
+      if (blockers.length) throw new UserError(`Not verified yet:\n• ${blockers.join("\n• ")}`);
     }
     if (tier && !fd.str(form, "tierReason")) throw new UserError("Explain the tier assignment briefly.");
     await db.project.update({
@@ -262,6 +268,53 @@ export async function researchDecisionAction(_: ActionState, form: FormData): Pr
     await audit(user, "project.research_decision", "Project", projectId, { status, tier });
     revalidatePath(`/admin/projects/${projectId}`);
     return { ok: true, message: "Research status updated." };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+async function loadResearch(projectId: string) {
+  const p = await db.project.findUniqueOrThrow({ where: { id: projectId }, include: { sources: true, configurations: true, developer: { select: { name: true } } } });
+  return { ...p, research: { ...p, developerName: p.developer.name } };
+}
+
+/** Outstanding checks, access limitations and research notes. */
+export async function researchDetailsAction(_: ActionState, form: FormData): Promise<ActionState> {
+  try {
+    const user = await assertPermission("projects:write");
+    const projectId = z.string().cuid().parse(form.get("projectId"));
+    const outstandingChecks = (fd.str(form, "outstandingChecks") ?? "").split("\n").map((l) => l.replace(/^[-•*]\s*/, "").trim()).filter(Boolean).slice(0, 40);
+    await db.project.update({ where: { id: projectId }, data: { outstandingChecks, accessLimitations: fd.str(form, "accessLimitations"), researchNotes: fd.str(form, "researchNotes"), nextVerificationAt: fd.date(form, "nextVerificationAt") } });
+    await audit(user, "project.research_details", "Project", projectId, { outstanding: outstandingChecks.length });
+    revalidatePath(`/admin/projects/${projectId}`);
+    return { ok: true, message: outstandingChecks.length ? `${outstandingChecks.length} outstanding check(s) saved.` : "Saved — no outstanding checks." };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** A manager approves or rejects the project's evidence. Approval is blocked while anything is unresolved. */
+export async function reviewProjectAction(_: ActionState, form: FormData): Promise<ActionState> {
+  try {
+    const user = await assertPermission("projects:write");
+    if (!["SUPER_ADMIN", "OPERATIONS_MANAGER"].includes(user.role)) throw new UserError("Only managers can approve or reject projects.");
+    const projectId = z.string().cuid().parse(form.get("projectId"));
+    const decision = z.enum(["APPROVED", "REJECTED", "PENDING"]).parse(form.get("decision"));
+    const note = fd.str(form, "note");
+    const p = await loadResearch(projectId);
+    if (decision === "APPROVED" && !p.isDemo) {
+      const blockers = approvalBlockers(p.research, p.sources);
+      if (blockers.length) throw new UserError(`Can't approve yet:\n• ${blockers.join("\n• ")}`);
+    }
+    if (decision === "REJECTED" && !note) throw new UserError("Say why the project is rejected.");
+    await db.project.update({
+      where: { id: projectId },
+      data: { approvalStatus: decision, approvalNote: note, approvalBy: decision === "PENDING" ? null : user.name, approvalAt: decision === "PENDING" ? null : new Date(), ...(decision !== "APPROVED" ? { isPublished: false } : {}) },
+    });
+    await audit(user, "project.review", "Project", projectId, { decision });
+    revalidatePath(`/admin/projects/${projectId}`);
+    revalidatePath("/");
+    return { ok: true, message: decision === "APPROVED" ? "Approved. It can now be published after the compliance review." : decision === "REJECTED" ? "Rejected — it stays off the public site." : "Back to pending." };
   } catch (e) {
     return fail(e);
   }
@@ -284,15 +337,14 @@ export async function publishAction(_: ActionState, form: FormData): Promise<Act
   try {
     const user = await assertPermission("projects:write");
     const projectId = z.string().cuid().parse(form.get("projectId"));
-    const approval = z.enum(["PENDING", "APPROVED", "REJECTED"]).parse(form.get("approvalStatus"));
-    if (approval !== "PENDING" && !["SUPER_ADMIN", "OPERATIONS_MANAGER"].includes(user.role)) throw new UserError("Only managers can approve.");
+    if (!["SUPER_ADMIN", "OPERATIONS_MANAGER"].includes(user.role)) throw new UserError("Only managers can publish.");
     const complianceReviewed = fd.bool(form, "complianceReviewed");
     const isPublished = fd.bool(form, "isPublished");
-    if (isPublished && (approval !== "APPROVED" || !complianceReviewed)) throw new UserError("A project can be published only after owner approval and compliance review.");
     const p = await db.project.findUniqueOrThrow({ where: { id: projectId } });
+    if (isPublished && (p.approvalStatus !== "APPROVED" || !complianceReviewed)) throw new UserError("A project can be published only after its evidence is approved and the compliance review is done.");
     if (isPublished && p.researchStatus === "EXCLUDED") throw new UserError("Excluded projects cannot be published.");
-    await db.project.update({ where: { id: projectId }, data: { approvalStatus: approval, complianceReviewed, isPublished, complianceNotes: fd.str(form, "complianceNotes") } });
-    await audit(user, "project.publication", "Project", projectId, { approval, complianceReviewed, isPublished });
+    await db.project.update({ where: { id: projectId }, data: { complianceReviewed, isPublished, complianceNotes: fd.str(form, "complianceNotes") } });
+    await audit(user, "project.publication", "Project", projectId, { complianceReviewed, isPublished });
     revalidatePath(`/admin/projects/${projectId}`);
     revalidatePath("/");
     return { ok: true, message: isPublished ? "Published on the public site." : "Saved. Not public." };

@@ -5,6 +5,23 @@
 import { PrismaClient } from "@prisma/client";
 import { CHECKED_AT, RESEARCH_DEVELOPERS, RESEARCH_PROJECTS } from "./research-data";
 
+/** Recorded on every imported record: the research could not reach the primary sources. */
+export const RESEARCH_ACCESS_LIMITATION =
+  "Researched on 26 Oct 2026 using web search only. Developer websites and the MahaRERA portal (maharera.maharashtra.gov.in) were blocked by the research environment's network policy, so no fact here was checked against the primary record.";
+
+/** The checks every imported record still needs before it can be verified. */
+export function standardChecks(p: { reraNumber?: string; reraStatusText: string; conflict?: string; officialUrl?: string }): string[] {
+  return [
+    p.reraNumber ? `Look up ${p.reraNumber} on MahaRERA and record the record URL` : "Find the MahaRERA registration (if any) on maharera.maharashtra.gov.in and record the URL",
+    "Confirm the promoter's legal name and the registered project name",
+    "Confirm configurations and RERA carpet areas from MahaRERA or the developer",
+    "Confirm the declared completion date on MahaRERA",
+    p.officialUrl ? "Confirm the official developer page is current" : "Find the developer's official project page",
+    "Confirm launch / booking status and inventory directly with the developer's sales team",
+    ...(p.conflict ? [`Resolve conflict: ${p.conflict}`] : []),
+  ];
+}
+
 export async function importResearch(db: PrismaClient) {
   let created = 0;
   const devIds: Record<string, string> = {};
@@ -18,7 +35,13 @@ export async function importResearch(db: PrismaClient) {
   }
   for (const p of RESEARCH_PROJECTS) {
     const exists = await db.project.findUnique({ where: { slug: p.slug } });
-    if (exists) continue;
+    if (exists) {
+      // Back-fill research bookkeeping on older imports without touching anything a person edited.
+      if (!exists.isDemo && !exists.accessLimitations && !exists.outstandingChecks.length && exists.researchStatus === "NEEDS_REVIEW") {
+        await db.project.update({ where: { id: exists.id }, data: { accessLimitations: RESEARCH_ACCESS_LIMITATION, outstandingChecks: standardChecks(p) } });
+      }
+      continue;
+    }
     const loc = await db.location.findUnique({ where: { slug: p.location } });
     if (!loc) throw new Error(`Unknown location ${p.location} for ${p.slug}`);
     await db.project.create({
@@ -54,6 +77,8 @@ export async function importResearch(db: PrismaClient) {
         budgetBandNote: p.budgetBandNote ?? null,
         buyerSegments: p.buyerSegments,
         dueDiligence: p.dueDiligence,
+        accessLimitations: RESEARCH_ACCESS_LIMITATION,
+        outstandingChecks: standardChecks(p),
         conflictFlag: !!p.conflict || p.sources.some((s) => s.verdict === "CONFLICT"),
         conflictNotes: p.conflict ?? null,
         dataVerification: "AWAITING_VERIFICATION",
@@ -89,3 +114,4 @@ if (require.main === module) {
     })
     .finally(() => db.$disconnect());
 }
+

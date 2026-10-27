@@ -5,7 +5,8 @@ export function isPubliclyVisible(p: { isPublished: boolean; complianceReviewed:
   return p.isPublished && p.complianceReviewed;
 }
 
-export const PUBLIC_PROJECT_WHERE = { isPublished: true, complianceReviewed: true } as const;
+/** Public pages show only projects whose evidence a manager approved, that passed compliance review and were published. */
+export const PUBLIC_PROJECT_WHERE = { isPublished: true, complianceReviewed: true, approvalStatus: "APPROVED" } as const;
 
 /** Facts marked unavailable are hidden rather than shown as if known. */
 export function showFact(v: DataVerification): boolean {

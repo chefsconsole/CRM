@@ -28,7 +28,9 @@ import { matchProperty } from "@/lib/domain/matching";
 import { matchPropertySelect, toMatchProperty, toMatchRequirement } from "@/lib/services/requirements";
 import { grossYieldPct, netYield } from "@/lib/domain/yield";
 import { piiView } from "@/lib/queries/buyers";
-import { addMediaAction, addSourceAction, deleteConfigAction, markVerifiedTodayAction, mediaOpAction, publishAction, researchDecisionAction, saveConfigAction, updateProjectAction } from "../actions";
+import { addMediaAction, addSourceAction, deleteConfigAction, markVerifiedTodayAction, mediaOpAction, publishAction, researchDecisionAction, researchDetailsAction, reviewProjectAction, saveConfigAction, updateProjectAction } from "../actions";
+import { EvidenceReview } from "@/components/admin/evidence-review";
+import { approvalBlockers, FACT_KEYS } from "@/lib/domain/research";
 
 export const metadata = { title: "Project" };
 const d = toISTDateInput;
@@ -59,6 +61,9 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
     db.location.findMany({ where: { kind: { in: ["SUBURB", "NEIGHBOURHOOD", "REGION"] } }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
   const hidden = <input type="hidden" name="projectId" value={p.id} />;
+  const research = { ...p, developerName: p.developer.name };
+  const blockers = approvalBlockers(research, p.sources);
+  const manager = ["SUPER_ADMIN", "OPERATIONS_MANAGER"].includes(user.role);
   const isRent = p.dealType === "RENT";
   const minPrice = Math.min(...p.configurations.map((c) => c.priceMin ?? Infinity));
 
@@ -71,7 +76,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         actions={p.isPublished ? <Link href={`/properties/${p.slug}`} target="_blank" className="inline-flex h-10 items-center gap-2 rounded-full border border-ink-900/10 bg-white px-4 text-sm font-medium"><Eye className="size-4" /> View public page</Link> : undefined}
       />
       {p.conflictFlag && <p className="mb-5 flex items-start gap-2 rounded-2xl border border-clay-600/20 bg-clay-50 px-4 py-3 text-[13px] text-clay-600"><AlertTriangle className="mt-0.5 size-4 shrink-0" /> <span><strong>Conflicting information — manual review required.</strong> {p.conflictNotes}</span></p>}
-      <Tabs base={base} active={tab} tabs={[{ key: "overview", label: "Overview" }, { key: "pricing", label: "Configurations & prices", count: p.configurations.length }, { key: "research", label: "Research & sources", count: p.sources.length }, { key: "media", label: "Media", count: p.media.length }, { key: "demand", label: "Demand", count: p._count.interests }, { key: "matches", label: "Buyer matches" }, { key: "publish", label: "Approval & publishing" }]} />
+      <Tabs base={base} active={tab} tabs={[{ key: "overview", label: "Overview" }, { key: "pricing", label: "Configurations & prices", count: p.configurations.length }, { key: "research", label: "Research & sources", count: p.sources.length }, { key: "media", label: "Media", count: p.media.length }, { key: "demand", label: "Demand", count: p._count.interests }, { key: "matches", label: "Buyer matches" }, { key: "publish", label: "Review & publish", count: p.isDemo ? undefined : blockers.length || undefined }]} />
 
       {tab === "overview" && (
         <div className="grid gap-5 xl:grid-cols-[1fr_400px]">
@@ -238,6 +243,12 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
 
       {tab === "research" && (
         <div className="grid gap-5 xl:grid-cols-[1fr_400px]">
+          <div className="space-y-5">
+          {p.accessLimitations && <p className="flex items-start gap-2 rounded-2xl bg-amber-50 px-4 py-3 text-[13px] text-amber-600"><AlertTriangle className="mt-0.5 size-4 shrink-0" /><span><strong>Research limitation:</strong> {p.accessLimitations}</span></p>}
+          <Card>
+            <CardHeader title="Evidence review" subtitle="Every material fact and status, with the strongest source behind it. A record existing here does not mean it is verified." />
+            <div className="p-6"><EvidenceReview project={research} sources={p.sources} /></div>
+          </Card>
           <Card>
             <CardHeader title="Research audit trail" subtitle="What was checked, where, and when. Official sources outrank portals; conflicts are flagged, never resolved by picking the nicer number." />
             <div className="overflow-x-auto p-6">
@@ -262,7 +273,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
                 <p className="mb-3 text-[13px] font-semibold text-ink-900">Record a source</p>
                 <ActionForm action={addSourceAction} resetOnSuccess className="grid gap-3 sm:grid-cols-2">
                   {hidden}
-                  <Field label="Fact"><Select name="factKey" defaultValue="rera">{["rera", "status", "configurations", "price", "possession", "completion", "oc_status", "location", "promoter", "inventory", "announcement", "litigation", "other"].map((k) => <option key={k}>{k}</option>)}</Select></Field>
+                  <Field label="Fact"><Select name="factKey" defaultValue="rera">{FACT_KEYS.map((k) => <option key={k}>{k}</option>)}</Select></Field>
                   <Field label="Source type"><Select name="sourceType" defaultValue="MAHARERA">{Object.entries(SOURCE_TYPE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></Field>
                   <Field label="What the source says" className="sm:col-span-2"><Input name="claim" placeholder="e.g. Registered as P518…, completion 31 Dec 2029" /></Field>
                   <Field label="URL"><Input name="url" placeholder="https://maharera.maharashtra.gov.in/…" /></Field>
@@ -274,13 +285,27 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
               </div>
             )}
           </Card>
+          </div>
           <div className="space-y-5">
+            <Card className="p-6">
+              <h3 className="font-semibold text-ink-900">Outstanding checks & limitations</h3>
+              <ActionForm action={researchDetailsAction} className="mt-4 space-y-3">
+                {hidden}
+                <fieldset disabled={!w} className="space-y-3">
+                  <Field label="Outstanding checks (one per line)" hint="The project can't be verified or approved while any remain."><Textarea name="outstandingChecks" rows={5} defaultValue={p.outstandingChecks.join("\n")} placeholder={"Confirm MahaRERA registration and record URL\nConfirm declared completion date"} /></Field>
+                  <Field label="Access limitations" hint="What could not be checked, and why. Recorded, never hidden."><Textarea name="accessLimitations" rows={3} defaultValue={p.accessLimitations ?? ""} placeholder="e.g. MahaRERA portal unavailable on 26 Oct 2026" /></Field>
+                  <Field label="Research notes"><Textarea name="researchNotes" rows={3} defaultValue={p.researchNotes ?? ""} /></Field>
+                  <Field label="Next verification"><Input type="date" name="nextVerificationAt" defaultValue={d(p.nextVerificationAt)} /></Field>
+                </fieldset>
+                {w && <SubmitButton>Save</SubmitButton>}
+              </ActionForm>
+            </Card>
             <Card className="p-6">
               <h3 className="flex items-center gap-2 font-semibold text-ink-900"><ShieldCheck className="size-4 text-gold-600" /> Research decision</h3>
               <ActionForm action={researchDecisionAction} className="mt-4 space-y-3">
                 {hidden}
                 <fieldset disabled={!w} className="space-y-3">
-                  <Field label="Research status" hint="Verified requires an official confirmed source and no open conflict."><Select name="researchStatus" defaultValue={p.researchStatus}>{Object.entries(RESEARCH_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</Select></Field>
+                  <Field label="Research status" hint="Verified requires every material fact to be sourced, MahaRERA confirmed on the official record, status evidence in place and no outstanding checks."><Select name="researchStatus" defaultValue={p.researchStatus}>{Object.entries(RESEARCH_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</Select></Field>
                   <Field label="Tier"><Select name="tier" defaultValue={p.tier ?? ""}><option value="">Not tiered</option><option value="A">Tier A — priority</option><option value="B">Tier B — selective</option></Select></Field>
                   <Field label="Reason for tier (evidence, not marketing)"><Textarea name="tierReason" defaultValue={p.tierReason ?? ""} /></Field>
                   <Checkbox name="conflictFlag" defaultChecked={p.conflictFlag} label="Sources conflict — needs manual review" />
@@ -335,27 +360,51 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
       {tab === "matches" && <MatchesTab projectId={p.id} userRole={user} />}
 
       {tab === "publish" && (
-        <Card className="max-w-2xl p-6 md:p-8">
-          <h3 className="font-serif text-2xl text-ink-900">Approval & publishing</h3>
-          <ul className="mt-4 space-y-2 text-[13px]">
-            <Check ok={p.researchStatus === "VERIFIED"} label="Research verified against official sources" />
-            <Check ok={!p.conflictFlag} label="No unresolved conflicts" />
-            <Check ok={!!p.reraNumber && p.reraVerification === "VERIFIED"} label="MahaRERA registration verified (where legally required)" />
-            <Check ok={p.configurations.length > 0} label="At least one configuration recorded" />
-            <Check ok={p.approvalStatus === "APPROVED"} label="Owner approval" />
-          </ul>
-          <ActionForm action={publishAction} className="mt-6 space-y-4">
-            {hidden}
-            <fieldset disabled={!w} className="space-y-4">
-              <Field label="Owner approval"><Select name="approvalStatus" defaultValue={p.approvalStatus}>{Object.entries(APPROVAL).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</Select></Field>
-              <Checkbox name="complianceReviewed" defaultChecked={p.complianceReviewed} label="Compliance reviewed: advertising claims, indicative-vs-confirmed pricing, RERA disclosure and developer authorisation checked." />
-              <Checkbox name="isPublished" defaultChecked={p.isPublished} label="Publish on the public website" />
-              <Field label="Compliance notes"><Textarea name="complianceNotes" defaultValue={p.complianceNotes ?? ""} /></Field>
-            </fieldset>
-            {w && <SubmitButton>Save</SubmitButton>}
-          </ActionForm>
-          <p className="mt-4 text-[12px] text-stone-500">Publishing needs owner approval and compliance review. Verification is strongly recommended; demo records are approved for demonstration only.</p>
-        </Card>
+        <div className="grid gap-5 xl:grid-cols-[1fr_440px]">
+          <Card className="p-6 md:p-8">
+            <h3 className="font-serif text-2xl text-ink-900">Evidence review</h3>
+            <p className="mt-1 text-[13px] text-stone-500">Approve only what the sources support. Approval is blocked while anything below is unresolved.</p>
+            <div className="mt-5"><EvidenceReview project={research} sources={p.sources} /></div>
+          </Card>
+          <div className="space-y-5">
+            <Card className="p-6">
+              <h3 className="font-semibold text-ink-900">1 · Approve or reject</h3>
+              <p className="mt-1 text-[13px] text-stone-600">Current: <LabelBadge map={APPROVAL} value={p.approvalStatus} />{p.approvalBy ? <span className="text-stone-500"> · {p.approvalBy}, {formatDate(p.approvalAt)}</span> : null}</p>
+              {p.approvalNote && <p className="mt-2 rounded-xl bg-ivory-100 px-3 py-2 text-[12.5px] text-stone-600">{p.approvalNote}</p>}
+              {p.isDemo ? <p className="mt-3 text-[12px] text-stone-500">Demo record — fictional data, approved for demonstration only.</p> : blockers.length ? (
+                <ul className="mt-3 space-y-1 text-[12.5px] text-clay-600">{blockers.map((b) => <li key={b} className="flex items-start gap-1.5"><span aria-hidden>•</span>{b}</li>)}</ul>
+              ) : <p className="mt-3 text-[12.5px] text-sage-600">Evidence is complete — ready for a decision.</p>}
+              {manager ? (
+                <ActionForm action={reviewProjectAction} className="mt-4 space-y-2">
+                  {hidden}
+                  <Textarea name="note" rows={2} placeholder="Decision note (required to reject)" />
+                  <div className="flex flex-wrap gap-2">
+                    <SubmitButton size="sm" name="decision" value="APPROVED">Approve</SubmitButton>
+                    <SubmitButton size="sm" variant="outline" name="decision" value="REJECTED">Reject</SubmitButton>
+                    {p.approvalStatus !== "PENDING" && <SubmitButton size="sm" variant="ghost" name="decision" value="PENDING">Back to pending</SubmitButton>}
+                  </div>
+                </ActionForm>
+              ) : <p className="mt-3 text-[12px] text-stone-500">Only managers can approve or reject.</p>}
+            </Card>
+            <Card className="p-6">
+              <h3 className="font-semibold text-ink-900">2 · Compliance & publication</h3>
+              <ul className="mt-3 space-y-2 text-[13px]">
+                <Check ok={p.approvalStatus === "APPROVED"} label="Evidence approved" />
+                <Check ok={p.complianceReviewed} label="Compliance reviewed" />
+                <Check ok={p.isPublished} label="Published" />
+              </ul>
+              <ActionForm action={publishAction} className="mt-4 space-y-3">
+                {hidden}
+                <fieldset disabled={!manager || p.approvalStatus !== "APPROVED"} className="space-y-3">
+                  <Checkbox name="complianceReviewed" defaultChecked={p.complianceReviewed} label="Compliance reviewed: advertising claims, verified-vs-indicative pricing, RERA disclosure and developer authorisation checked." />
+                  <Checkbox name="isPublished" defaultChecked={p.isPublished} label="Publish on the public website" />
+                  <Field label="Compliance notes"><Textarea name="complianceNotes" defaultValue={p.complianceNotes ?? ""} /></Field>
+                </fieldset>
+                {manager && p.approvalStatus === "APPROVED" ? <SubmitButton>Save</SubmitButton> : <p className="text-[12px] text-stone-500">{p.approvalStatus !== "APPROVED" ? "Approve the evidence first." : "Only managers can publish."}</p>}
+              </ActionForm>
+            </Card>
+          </div>
+        </div>
       )}
     </div>
   );
