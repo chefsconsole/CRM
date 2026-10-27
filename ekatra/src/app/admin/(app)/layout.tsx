@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { requireTeamUser } from "@/lib/auth";
 import { can, ROLE_LABELS } from "@/lib/rbac";
 import { db } from "@/lib/db";
+import { istDay } from "@/lib/time";
 import { AdminShell, type NavItem } from "@/components/admin/shell";
 
 export const metadata: Metadata = { title: { default: "Command centre", template: "%s · EstateIQ" }, robots: { index: false } };
@@ -9,12 +10,12 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireTeamUser();
-  const endOfDay = new Date();
-  endOfDay.setHours(23, 59, 59, 999);
+  const { end: endOfDay } = istDay();
   const [unread, dueFollowUps, needsReview] = await Promise.all([
     db.notification.count({ where: { userId: user.id, readAt: null } }),
-    can(user.role, "buyers:read")
-      ? db.buyer.count({ where: { anonymizedAt: null, nextFollowUpAt: { lte: endOfDay }, stage: { notIn: ["CONVERTED", "LOST"] }, ...(user.role === "SALES_REP" ? { assignedToId: user.id } : {}) } })
+    // Open follow-ups due today or overdue (IST), across buyers, developers, inventory and negotiations.
+    can(user.role, "visits:read")
+      ? db.task.count({ where: { status: "OPEN", dueAt: { lt: endOfDay }, ...(user.role === "SALES_REP" ? { assigneeId: user.id } : {}), ...(can(user.role, "commercial:read") ? {} : { negotiationId: null }), ...(can(user.role, "buyers:read") ? {} : { buyerId: null }) } })
       : 0,
     can(user.role, "projects:read") ? db.project.count({ where: { researchStatus: "NEEDS_REVIEW" } }) : 0,
   ]);
@@ -36,7 +37,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     can(user.role, "buyers:write") && { href: "/admin/buyers/new", label: "New buyer" },
     can(user.role, "projects:write") && { href: "/admin/projects/new", label: "New project" },
     can(user.role, "projects:write") && { href: "/admin/inventory/new", label: "New inventory flat" },
-    can(user.role, "visits:write") && { href: "/admin/follow-ups?new=visit", label: "Schedule site visit" },
+    can(user.role, "visits:write") && { href: "/admin/follow-ups?view=visits#schedule", label: "Schedule site visit" },
     can(user.role, "demand:write") && { href: "/admin/demand/new", label: "New campaign" },
     can(user.role, "developers:write") && { href: "/admin/developers/new", label: "New developer" },
   ].filter(Boolean) as { href: string; label: string }[];

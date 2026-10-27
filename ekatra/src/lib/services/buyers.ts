@@ -1,5 +1,6 @@
 import type { InterestTier, LeadStage } from "@prisma/client";
 import { db } from "../db";
+import { syncFollowUpDates } from "./followups";
 import { LEAD_STAGE, INTEREST_TIER } from "../labels";
 import { audit } from "../audit";
 import { checkCampaignMilestones } from "./campaigns";
@@ -29,6 +30,11 @@ export async function changeBuyerStage(buyerId: string, stage: LeadStage, actor:
       },
     }),
   ]);
+  // A converted or lost buyer has nothing left to follow up.
+  if (stage === "CONVERTED" || stage === "LOST") {
+    await db.task.updateMany({ where: { buyerId, status: "OPEN" }, data: { status: "CANCELLED", cancelledAt: new Date(), outcome: `Buyer marked ${LEAD_STAGE[stage].label.toLowerCase()}` } });
+    await syncFollowUpDates({ buyerId });
+  }
   return true;
 }
 

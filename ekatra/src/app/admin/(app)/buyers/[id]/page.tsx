@@ -76,7 +76,7 @@ export default async function BuyerProfile({ params }: { params: Promise<{ id: s
         actions={
           <>
             {v.pii && b.phoneNormalized && <a href={`tel:${b.phoneNormalized}`} className="inline-flex h-10 items-center gap-2 rounded-full border border-ink-900/10 bg-white px-4 text-sm font-medium"><Phone className="size-4" /> Call</a>}
-            {can(user.role, "visits:write") && <ButtonLink href={`/admin/follow-ups?new=visit&buyer=${b.id}`} variant="primary"><CalendarPlus className="size-4" /> Schedule visit</ButtonLink>}
+            {can(user.role, "visits:write") && <ButtonLink href={`/admin/follow-ups?view=visits&buyer=${b.id}#schedule`} variant="primary"><CalendarPlus className="size-4" /> Schedule visit</ButtonLink>}
           </>
         }
       />

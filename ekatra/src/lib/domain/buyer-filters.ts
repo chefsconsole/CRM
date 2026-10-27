@@ -2,6 +2,7 @@
 // dashboard drill-downs and exports.
 
 import type { Intent, InterestTier, LeadStage, Prisma, Priority } from "@prisma/client";
+import { istDay } from "../time";
 
 export interface BuyerFilter {
   q?: string;
@@ -125,9 +126,8 @@ export function buyerWhere(f: BuyerFilter, currentUserId?: string, now = new Dat
     and.push({ interests: { some: { status: "ACTIVE", ...(f.projectId ? { projectId: f.projectId } : {}), ...(f.tiers?.length ? { tier: { in: f.tiers } } : {}) } } });
   if (f.upcomingLaunch) req({ stagePreferences: { hasSome: [...UPCOMING] } });
   if (f.followUpDue) {
-    const end = new Date(now);
-    end.setHours(23, 59, 59, 999);
-    and.push({ nextFollowUpAt: { lte: end }, stage: { notIn: ["CONVERTED", "LOST"] } });
+    const { end } = istDay(now);
+    and.push({ nextFollowUpAt: { lt: end }, stage: { notIn: ["CONVERTED", "LOST"] } });
   }
   if (f.source) and.push({ leadSource: f.source });
   return { AND: and };

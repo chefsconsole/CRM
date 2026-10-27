@@ -49,29 +49,10 @@ export async function visitOutcomeAction(_: ActionState, form: FormData): Promis
     const status = z.enum(["REQUESTED", "SCHEDULED", "CONFIRMED", "COMPLETED", "RESCHEDULED", "CANCELLED"]).parse(form.get("status"));
     const v = await db.siteVisit.update({ where: { id }, data: { status, outcome: fd.str(form, "outcome"), nextFollowUpAt: fd.date(form, "nextFollowUpAt") }, include: { project: { select: { name: true } } } });
     await db.activity.create({ data: { type: "VISIT", title: `Visit ${status.toLowerCase()} — ${v.project.name}`, body: v.outcome, buyerId: v.buyerId, projectId: v.projectId, actorId: user.id } });
-    if (v.nextFollowUpAt) await db.buyer.update({ where: { id: v.buyerId }, data: { nextFollowUpAt: v.nextFollowUpAt } });
+    if (v.nextFollowUpAt) await createFollowUp({ buyerId: v.buyerId, title: `Follow up after visit — ${v.project.name}`, dueAt: v.nextFollowUpAt, assigneeId: v.assignedToId ?? user.id });
     if (status === "COMPLETED") await db.buyer.updateMany({ where: { id: v.buyerId, stage: { in: ["NEW_INQUIRY", "CONTACT_PENDING", "CONTACTED", "QUALIFIED", "VISIT_SCHEDULED"] } }, data: { stage: "VISIT_COMPLETED" } });
     revalidatePath("/admin/follow-ups");
     return { ok: true, message: "Updated." };
-  } catch (e) {
-    return fail(e);
-  }
-}
-
-export async function taskAction(_: ActionState, form: FormData): Promise<ActionState> {
-  try {
-    const user = await assertPermission("visits:write");
-    const id = fd.str(form, "taskId");
-    if (id) {
-      const t = await db.task.findUniqueOrThrow({ where: { id } });
-      if (user.role === "SALES_REP" && t.assigneeId && t.assigneeId !== user.id) throw new UserError("This task belongs to someone else.");
-      const done = t.status !== "DONE";
-      await db.task.update({ where: { id }, data: { status: done ? "DONE" : "OPEN", completedAt: done ? new Date() : null } });
-    } else {
-      await db.task.create({ data: { title: z.string().trim().min(2, "Describe the task.").max(200).parse(form.get("title")), dueAt: fd.date(form, "dueAt"), assigneeId: fd.str(form, "assigneeId") ?? user.id, buyerId: fd.str(form, "buyerId") } });
-    }
-    revalidatePath("/admin/follow-ups");
-    return { ok: true };
   } catch (e) {
     return fail(e);
   }
@@ -126,7 +107,8 @@ export async function createFollowUpAction(_: ActionState, form: FormData): Prom
 }
 
 async function loadTaskForUpdate(form: FormData) {
-  const id = z.string().cuid().parse(form.get("taskId"));
+  // Ids are cuids, or UUIDs for follow-ups migrated from older "next follow-up" dates.
+  const id = z.string().min(20).max(40).regex(/^[a-z0-9-]+$/).parse(form.get("taskId"));
   const t = await db.task.findUniqueOrThrow({ where: { id } });
   const user = await assertFollowUpAccess(t);
   if (user.role === "SALES_REP" && t.assigneeId && t.assigneeId !== user.id) throw new UserError("This follow-up belongs to someone else.");

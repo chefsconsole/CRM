@@ -34,10 +34,22 @@ export default async function CommissionsPage() {
     <div className="mx-auto max-w-[1500px]">
       <PageHeader title="Commissions" subtitle="Calculated from the terms agreed with each developer. One record per transaction, so nothing is ever counted twice." actions={<a href="/api/admin/export/commissions" className={buttonClass("outline")}><Download className="size-4" /> Statement (CSV)</a>} />
       <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-        {[["Expected", t.expected], ["Awaiting confirmation", t.awaiting], ["Eligible / invoice pending", t.eligible], ["Invoiced", t.invoiced], ["Received", t.received], ["Outstanding", t.outstanding]].map(([l, v], i) => (
-          <div key={l as string} className={`rounded-3xl border p-5 shadow-soft ${i === 5 ? "border-ink-900 bg-ink-900 text-ivory-50" : "border-ink-900/[0.07] bg-white text-ink-900"}`}><p className={`text-[12px] ${i === 5 ? "text-ink-300" : "text-stone-500"}`}>{l}</p><p className="num mt-1 text-2xl font-semibold">{formatINR(v as number)}</p></div>
+        {([
+          ["Expected (agreed)", t.expected, "Earned under signed terms — not revenue until paid", false],
+          ["Awaiting confirmation", t.awaiting, "Trigger not yet met", false],
+          ["Eligible / invoice pending", t.eligible, "Ready to invoice", false],
+          ["Invoiced", t.invoiced, "Sent to developers", false],
+          ["Received — revenue", t.received, "Money actually received", true],
+          ["Outstanding", t.outstanding, "Expected − received", false],
+        ] as const).map(([l, v, sub, hero]) => (
+          <div key={l} className={`rounded-3xl border p-5 shadow-soft ${hero ? "border-ink-900 bg-ink-900 text-ivory-50" : "border-ink-900/[0.07] bg-white text-ink-900"}`}>
+            <p className={`text-[12px] ${hero ? "text-gold-300" : "text-stone-500"}`}>{l}</p>
+            <p className="num mt-1 font-serif text-3xl">{formatINR(v)}</p>
+            <p className={`mt-1 text-[11px] ${hero ? "text-ink-300" : "text-stone-400"}`}>{sub}</p>
+          </div>
         ))}
       </div>
+      <p className="mt-3 text-[12px] text-stone-500">Commission is tracked separately from buyer benefits and savings — those live on campaigns and inventory and are never added to revenue. Only payments recorded as received count as revenue.</p>
       <Card className="mt-4 p-6"><SplitBar format={(v) => formatINR(v)} parts={[{ label: "Received", value: t.received, tone: "ink" }, { label: "Outstanding", value: t.outstanding, tone: "gold" }, { label: "Disputed (incl. in outstanding)", value: t.disputed, tone: "muted" }]} /></Card>
 
       <h2 className="mb-3 mt-8 text-[13px] font-semibold uppercase tracking-[0.14em] text-stone-500">Commission records</h2>

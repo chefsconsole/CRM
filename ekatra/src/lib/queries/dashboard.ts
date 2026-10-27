@@ -1,4 +1,5 @@
 import "server-only";
+import { istDay } from "../time";
 import type { TeamUser } from "../auth";
 import { can } from "../rbac";
 import { db } from "../db";
@@ -56,8 +57,7 @@ export async function projectOpportunities(limit = 6): Promise<Opportunity[]> {
 
 export async function getDashboard(user: TeamUser) {
   const now = new Date();
-  const endOfDay = new Date(now);
-  endOfDay.setHours(23, 59, 59, 999);
+  const endOfDay = istDay(now).end;
   const weekAgo = new Date(now.getTime() - 7 * 864e5);
   const repScope = user.role === "SALES_REP" ? { assignedToId: user.id } : {};
   const commercial = can(user.role, "commercial:read");

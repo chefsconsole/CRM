@@ -52,3 +52,14 @@ export function dueBucket(due: Date | null | undefined, now = new Date()): DueBu
   if (due < end) return "TODAY";
   return "UPCOMING";
 }
+
+/** Year, month (1-12) and day of month of `d` in IST. */
+export function istParts(d: Date): { y: number; m: number; day: number; weekday: number } {
+  const s = new Date(d.getTime() + IST_OFFSET_MS);
+  return { y: s.getUTCFullYear(), m: s.getUTCMonth() + 1, day: s.getUTCDate(), weekday: s.getUTCDay() };
+}
+
+/** The instant an IST calendar month starts. */
+export function istMonthStart(y: number, m: number): Date {
+  return new Date(Date.UTC(y, m - 1, 1) - IST_OFFSET_MS);
+}

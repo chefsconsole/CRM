@@ -14,6 +14,7 @@ import { normalizeEmail, normalizeIndianPhone } from "@/lib/domain/identity";
 import { effectivePriority } from "@/lib/domain/priority";
 import { requirementSchema } from "@/lib/validation";
 import { audit } from "@/lib/audit";
+import { completeFollowUp, setNextFollowUp } from "@/lib/services/followups";
 import { LEAD_STAGES } from "@/lib/labels";
 import { parseBuyerFilter } from "@/lib/domain/buyer-filters";
 import { requirementFromForm } from "@/lib/forms";
@@ -122,7 +123,6 @@ export async function createBuyerAction(_: ActionState, form: FormData): Promise
         budgetMin: req.budgetMin,
         budgetMax: req.budgetMax,
         assignedToId: fd.str(form, "assignedToId") ?? (user.role === "SALES_REP" ? user.id : null),
-        nextFollowUpAt: fd.date(form, "nextFollowUpAt"),
         notes: fd.str(form, "notes"),
         requirements: { create: req },
         consents: { create: { purpose: "CONTACT_ABOUT_INQUIRY", granted: true, policyVersion: "2026-10", textShown: "Recorded by team member: buyer verbally agreed to be contacted about their requirement." } },
@@ -130,6 +130,7 @@ export async function createBuyerAction(_: ActionState, form: FormData): Promise
         locationPreferences: { create: [req.primaryLocationId, req.secondaryLocationId].filter((x): x is string => !!x).map((locationId) => ({ locationId })) },
       },
     });
+    await setNextFollowUp({ buyerId: buyer.id }, fd.date(form, "nextFollowUpAt"), { title: `Follow up with ${buyer.fullName}`, assigneeId: buyer.assignedToId ?? user.id });
     await recomputeBuyerPriority(buyer.id);
     await audit(user, "buyer.create", "Buyer", buyer.id);
     id = buyer.id;
@@ -171,12 +172,12 @@ export async function updateBuyerAction(_: ActionState, form: FormData): Promise
       where: { id: buyerId },
       data: {
         assignedToId,
-        nextFollowUpAt: fd.date(form, "nextFollowUpAt"),
         verification,
         fundingReadiness: (fd.str(form, "fundingReadiness") ?? before.fundingReadiness) as typeof before.fundingReadiness,
         notes: fd.str(form, "notes"),
       },
     });
+    await setNextFollowUp({ buyerId }, fd.date(form, "nextFollowUpAt"), { title: `Follow up with ${before.fullName}`, assigneeId: assignedToId ?? user.id });
     const stage = fd.str(form, "stage") as LeadStage | null;
     if (stage && stage !== before.stage) await changeBuyerStage(buyerId, stage, user, fd.str(form, "lostReason"));
     revalidatePath(`/admin/buyers/${buyerId}`);
@@ -196,10 +197,14 @@ export async function logActivityAction(_: ActionState, form: FormData): Promise
     const titles = { NOTE: "Note", CALL: "Call logged", MESSAGE: "Message logged", EMAIL: "Email logged" };
     await db.activity.create({ data: { type, title: titles[type], body, buyerId, actorId: user.id } });
     const next = fd.date(form, "nextFollowUpAt");
-    await db.buyer.update({
-      where: { id: buyerId },
-      data: { ...(type !== "NOTE" ? { lastContactedAt: new Date() } : {}), ...(next ? { nextFollowUpAt: next } : {}) },
-    });
+    if (type !== "NOTE") await db.buyer.update({ where: { id: buyerId }, data: { lastContactedAt: new Date() } });
+    if (next) {
+      // A contact attempt closes the follow-up that was due, and schedules the next one.
+      const b0 = await db.buyer.findUniqueOrThrow({ where: { id: buyerId }, select: { fullName: true, assignedToId: true } });
+      const due = await db.task.findFirst({ where: { buyerId, auto: true, status: "OPEN" }, orderBy: { dueAt: "asc" } });
+      if (due && type !== "NOTE") await completeFollowUp(due.id, user.id, `${titles[type]}: ${body.slice(0, 200)}`, { dueAt: next, title: due.title });
+      else await setNextFollowUp({ buyerId }, next, { title: `Follow up with ${b0.fullName}`, assigneeId: b0.assignedToId ?? user.id });
+    }
     const b = await db.buyer.findUniqueOrThrow({ where: { id: buyerId }, select: { stage: true } });
     if (type !== "NOTE" && ["NEW_INQUIRY", "CONTACT_PENDING"].includes(b.stage)) await changeBuyerStage(buyerId, "CONTACTED", user);
     revalidatePath(`/admin/buyers/${buyerId}`);
