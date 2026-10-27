@@ -10,10 +10,10 @@ export function DemoRibbon() {
   return (
     <div
       role="note"
-      className="pointer-events-none fixed bottom-[76px] right-3 z-[60] lg:bottom-3 flex items-center gap-2 rounded-full border border-gold-400/40 bg-ink-900/90 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-300 shadow-lift backdrop-blur"
+      className="pointer-events-none fixed bottom-[76px] right-3 z-[60] px-2.5 sm:px-3 lg:bottom-3 flex items-center gap-2 rounded-full border border-gold-400/40 bg-ink-900/90 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-300 shadow-lift backdrop-blur"
     >
       <span className="size-1.5 animate-pulse rounded-full bg-gold-400" />
-      Demo data · fictional projects &amp; prices
+      Demo<span className="hidden sm:inline">&nbsp;data · fictional projects &amp; prices</span>
     </div>
   );
 }
