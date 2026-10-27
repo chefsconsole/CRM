@@ -1,5 +1,6 @@
 // Structured requirement fields — shared by "new buyer" and the profile editor. Plain form controls (server-rendered).
 import type { BuyerRequirement } from "@prisma/client";
+import { toISTDateInput } from "@/lib/time";
 import { Field, Input, Select, Textarea } from "../ui/field";
 import { INTENT, SITUATION, FUNDING_STATUS, LOAN, PROPERTY_TYPE } from "@/lib/labels";
 import { BOOKING_OPTIONS, COMMIT_OPTIONS, POSSESSION_OPTIONS } from "@/lib/domain/timelines";
@@ -51,7 +52,7 @@ export function RequirementFields({ r, locations }: { r?: Partial<BuyerRequireme
       <div className="grid gap-4 sm:grid-cols-4">
         <Field label="Rent min (₹/mo)"><Input name="rentMin" inputMode="numeric" defaultValue={r?.rentMin ?? ""} /></Field>
         <Field label="Rent max (₹/mo)"><Input name="rentMax" inputMode="numeric" defaultValue={r?.rentMax ?? ""} /></Field>
-        <Field label="Move-in by"><Input name="moveInBy" type="date" defaultValue={r?.moveInBy ? new Date(r.moveInBy).toISOString().slice(0, 10) : ""} /></Field>
+        <Field label="Move-in by"><Input name="moveInBy" type="date" defaultValue={toISTDateInput(r?.moveInBy)} /></Field>
         <Field label="Down payment (₹)"><Input name="downPayment" inputMode="numeric" defaultValue={r?.downPayment ?? ""} /></Field>
       </div>
       <div className="grid gap-4 sm:grid-cols-3">

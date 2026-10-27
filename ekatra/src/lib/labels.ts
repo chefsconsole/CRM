@@ -128,14 +128,12 @@ export const FUNDING: Record<FundingReadiness, string> = {
 };
 
 export const DEVELOPER_STAGE: L<DeveloperStage> = {
-  IDENTIFIED: { label: "Identified", tone: "muted" },
+  RESEARCHING: { label: "Researching", tone: "muted" },
   CONTACTED: { label: "Contacted", tone: "info" },
-  MEETING_SCHEDULED: { label: "Meeting scheduled", tone: "info" },
-  DEMAND_PRESENTED: { label: "Demand presented", tone: "gold" },
-  NEGOTIATION: { label: "Negotiation", tone: "ink" },
-  TERMS_AGREED: { label: "Commercial terms agreed", tone: "positive" },
-  ACTIVE_PARTNERSHIP: { label: "Active partnership", tone: "positive" },
-  INACTIVE: { label: "Inactive", tone: "muted" },
+  PROPOSAL_SENT: { label: "Proposal sent", tone: "gold" },
+  NEGOTIATING: { label: "Negotiating", tone: "ink" },
+  TERMS_AGREED: { label: "Terms agreed", tone: "positive" },
+  CLOSED: { label: "Closed", tone: "muted" },
 };
 export const DEVELOPER_STAGES = Object.keys(DEVELOPER_STAGE) as DeveloperStage[];
 
@@ -218,14 +216,16 @@ export const BHK_OPTIONS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 5];
 
 
 export const LIFECYCLE: L<LifecycleStage> = {
-  ANNOUNCED_BY_DEVELOPER: { label: "Announced by developer", tone: "info" },
-  PRE_LAUNCH_MARKETING: { label: "Pre-launch marketing", tone: "gold" },
+  ANNOUNCED_BY_DEVELOPER: { label: "Officially announced", tone: "info" },
+  UPCOMING: { label: "Upcoming", tone: "info" },
+  PRE_LAUNCH_MARKETING: { label: "Pre-launch", tone: "gold" },
   MAHARERA_REGISTERED: { label: "MahaRERA registered", tone: "positive" },
   OFFICIAL_LAUNCH: { label: "Officially launched", tone: "ink" },
   BOOKINGS_OPEN: { label: "Bookings open", tone: "positive" },
   UNDER_CONSTRUCTION: { label: "Under construction", tone: "neutral" },
   COMPLETED_OC_RECEIVED: { label: "Completed / OC received", tone: "positive" },
   SOLD_OUT: { label: "Sold out", tone: "muted" },
+  INVENTORY_CONFIRMED: { label: "Inventory availability confirmed", tone: "positive" },
   INVENTORY_NOT_CONFIRMED: { label: "Inventory not confirmed", tone: "warning" },
 };
 export const LIFECYCLE_STAGES = Object.keys(LIFECYCLE) as LifecycleStage[];

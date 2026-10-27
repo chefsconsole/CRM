@@ -1,8 +1,9 @@
 import type { Negotiation } from "@prisma/client";
+import { toISTDateTimeInput } from "@/lib/time";
 import { Checkbox, Field, Input, Select, Textarea } from "../ui/field";
 import { COMMISSION_BASIS, COMMISSION_TRIGGER, NEGOTIATION_STATUS } from "@/lib/labels";
 
-const dt = (x: Date | null | undefined) => (x ? new Date(x.getTime() - x.getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "");
+const dt = toISTDateTimeInput;
 
 export function NegotiationFields({ n, developerId, projects, campaigns, users }: { n?: Negotiation | null; developerId: string; projects: { id: string; name: string }[]; campaigns: { id: string; name: string }[]; users: { id: string; name: string }[] }) {
   return (

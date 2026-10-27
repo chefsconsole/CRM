@@ -66,8 +66,11 @@ describe("inventory comparison", () => {
     expect(r.allIn).toBeNull();
     expect(r.missing.join(" ")).toMatch(/our unit/);
   });
-  it("warns about stale quotes", () => {
-    expect(compareInventory({ ...u, builderQuoteDate: new Date("2026-05-01") }, now).warnings[0]).toMatch(/older than/);
+  it("treats quotes older than 90 days as not current — no difference is calculated", () => {
+    const r = compareInventory({ ...u, builderQuoteDate: new Date("2026-05-01") }, now);
+    expect(r.status).toBe("NOT_COMPARABLE");
+    expect(r.problems[0]).toMatch(/older than 90 days/);
+    expect(r.headline).toBeNull();
   });
   it("buyer fit respects budget and configuration", () => {
     const unit = { bhk: 2, askingPrice: 1.9e7, microMarket: "Borivali West", carpetArea: 740 };

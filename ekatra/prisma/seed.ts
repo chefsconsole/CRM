@@ -156,12 +156,12 @@ async function main() {
 
   // ── Developers (fictional unless isUnverifiedRealName)
   const devs: Record<string, string> = {};
-  const devData: [string, string, string, number, "IDENTIFIED" | "CONTACTED" | "MEETING_SCHEDULED" | "DEMAND_PRESENTED" | "NEGOTIATION" | "TERMS_AGREED" | "ACTIVE_PARTNERSHIP", boolean][] = [
-    ["meridian-habitats", "Meridian Habitats", "Contemporary towers designed around light, cross-ventilation and generous balconies.", 2004, "NEGOTIATION", false],
-    ["vasant-lifespaces", "Vasant Lifespaces", "Value-focused family housing across Mumbai's northern suburbs.", 1998, "DEMAND_PRESENTED", false],
-    ["sterling-crest", "Sterling Crest Realty", "Boutique luxury residences with an architectural signature.", 2011, "MEETING_SCHEDULED", false],
-    ["aaranya-developers", "Aaranya Developers", "Green-certified communities with large open spaces.", 2008, "ACTIVE_PARTNERSHIP", false],
-    ["northbay-estates", "Northbay Estates", "Lakeside and waterfront residential developments.", 2015, "NEGOTIATION", false],
+  const devData: [string, string, string, number, "RESEARCHING" | "CONTACTED" | "PROPOSAL_SENT" | "NEGOTIATING" | "TERMS_AGREED" | "CLOSED", boolean][] = [
+    ["meridian-habitats", "Meridian Habitats", "Contemporary towers designed around light, cross-ventilation and generous balconies.", 2004, "NEGOTIATING", false],
+    ["vasant-lifespaces", "Vasant Lifespaces", "Value-focused family housing across Mumbai's northern suburbs.", 1998, "PROPOSAL_SENT", false],
+    ["sterling-crest", "Sterling Crest Realty", "Boutique luxury residences with an architectural signature.", 2011, "CONTACTED", false],
+    ["aaranya-developers", "Aaranya Developers", "Green-certified communities with large open spaces.", 2008, "TERMS_AGREED", false],
+    ["northbay-estates", "Northbay Estates", "Lakeside and waterfront residential developments.", 2015, "NEGOTIATING", false],
   ];
   for (const [slug, name, description, est, stage, real] of devData) {
     const d = await db.developer.create({

@@ -2,6 +2,7 @@
 import { ZodError } from "zod";
 import { ForbiddenError } from "./rbac";
 import { fieldErrors } from "./validation";
+import { parseISTInput } from "./time";
 
 export type ActionState = { ok?: boolean; message?: string; error?: string; fieldErrors?: Record<string, string>; data?: unknown } | null;
 
@@ -26,11 +27,10 @@ export const fd = {
     const n = Number(v.replace(/[,₹\s]/g, ""));
     return Number.isFinite(n) ? n : null;
   },
+  /** Dates typed into forms are IST wall-clock times, whatever the server's timezone. */
   date: (f: FormData, k: string) => {
     const v = f.get(k);
-    if (typeof v !== "string" || !v) return null;
-    const d = new Date(v);
-    return Number.isNaN(d.getTime()) ? null : d;
+    return typeof v === "string" ? parseISTInput(v) : null;
   },
   bool: (f: FormData, k: string) => f.get(k) === "on" || f.get(k) === "true",
   list: (f: FormData, k: string) => f.getAll(k).filter((v): v is string => typeof v === "string" && v !== ""),

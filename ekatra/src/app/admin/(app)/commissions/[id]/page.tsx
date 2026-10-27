@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { toISTDateInput } from "@/lib/time";
 import { Download } from "lucide-react";
 import { requirePermission } from "@/lib/auth";
 import { can } from "@/lib/rbac";
@@ -14,7 +15,7 @@ import { formatDate, formatINR, formatINRFull } from "@/lib/format";
 import { recordPaymentAction, updateCommissionAction } from "../actions";
 
 export const metadata = { title: "Commission" };
-const d = (x: Date | null) => (x ? x.toISOString().slice(0, 10) : "");
+const d = toISTDateInput;
 
 export default async function CommissionPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requirePermission("commercial:read");

@@ -1,4 +1,5 @@
 import type { Campaign } from "@prisma/client";
+import { toISTDateInput, toISTDateTimeInput } from "@/lib/time";
 import { Checkbox, Field, Input, Select, Textarea } from "../ui/field";
 import { INTEREST_TIER } from "@/lib/labels";
 import { DEFAULT_COUNTING_TIERS } from "@/lib/domain/demand";
@@ -10,7 +11,7 @@ export function CampaignFields({ c, users, defaults }: { c?: Campaign | null; us
     <div className="grid gap-4 sm:grid-cols-2">
       <Field label="Campaign name" className="sm:col-span-2"><Input name="name" defaultValue={c?.name ?? defaults?.name ?? ""} placeholder="Borivali West — Project A 2 BHK group" /></Field>
       <Field label="Target buyers"><Input name="targetBuyers" inputMode="numeric" defaultValue={c?.targetBuyers ?? 15} /></Field>
-      <Field label="Target date"><Input type="date" name="targetDate" defaultValue={c?.targetDate ? c.targetDate.toISOString().slice(0, 10) : ""} /></Field>
+      <Field label="Target date"><Input type="date" name="targetDate" defaultValue={toISTDateInput(c?.targetDate)} /></Field>
       <Field label="Counts toward target" className="sm:col-span-2" hint="Expressions of interest alone usually should not count.">
         <div className="flex flex-wrap gap-1.5">
           {Object.entries(INTEREST_TIER).map(([k, v]) => (

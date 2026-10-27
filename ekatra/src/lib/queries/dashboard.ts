@@ -123,7 +123,7 @@ export async function getDashboard(user: TeamUser) {
   const [developerFollowUps, reverify] = await Promise.all([
     can(user.role, "developers:read")
       ? db.developer.findMany({
-          where: { stage: { not: "INACTIVE" }, nextFollowUpAt: { lte: new Date(now.getTime() + 7 * 864e5) } },
+          where: { stage: { not: "CLOSED" }, nextFollowUpAt: { lte: new Date(now.getTime() + 7 * 864e5) } },
           orderBy: { nextFollowUpAt: "asc" },
           take: 4,
           select: { id: true, name: true, nextFollowUpAt: true, stage: true },

@@ -29,7 +29,7 @@ export async function saveDeveloperAction(_: ActionState, form: FormData): Promi
       email: fd.str(form, "email"),
       phone: fd.str(form, "phone"),
       established: fd.num(form, "established"),
-      stage: stageEnum.parse(fd.str(form, "stage") ?? "IDENTIFIED"),
+      stage: stageEnum.parse(fd.str(form, "stage") ?? "RESEARCHING"),
       verification: (fd.str(form, "verification") ?? "AWAITING_VERIFICATION") as "VERIFIED",
       relationshipOwnerId: fd.str(form, "relationshipOwnerId"),
       nextFollowUpAt: fd.date(form, "nextFollowUpAt"),
@@ -165,7 +165,7 @@ export async function negotiationAction(_: ActionState, form: FormData): Promise
       return { ok: true, message: "Saved." };
     }
     const n = await db.negotiation.create({ data });
-    await db.developer.update({ where: { id: data.developerId }, data: { stage: "NEGOTIATION" } }).catch(() => undefined);
+    await db.developer.update({ where: { id: data.developerId }, data: { stage: "NEGOTIATING" } }).catch(() => undefined);
     await audit(user, "negotiation.create", "Negotiation", n.id);
     id = n.id;
   } catch (e) {

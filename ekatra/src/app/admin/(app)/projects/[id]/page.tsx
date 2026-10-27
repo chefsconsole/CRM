@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { toISTDateInput } from "@/lib/time";
 import type { Campaign } from "@prisma/client";
 import { notFound } from "next/navigation";
 import { AlertTriangle, ExternalLink, Eye, ShieldCheck, Trash2, Star } from "lucide-react";
@@ -30,7 +31,7 @@ import { piiView } from "@/lib/queries/buyers";
 import { addMediaAction, addSourceAction, deleteConfigAction, markVerifiedTodayAction, mediaOpAction, publishAction, researchDecisionAction, saveConfigAction, updateProjectAction } from "../actions";
 
 export const metadata = { title: "Project" };
-const d = (x: Date | null) => (x ? x.toISOString().slice(0, 10) : "");
+const d = toISTDateInput;
 const VERIF_OPTS = Object.entries(VERIFICATION).map(([k, v]) => <option key={k} value={k}>{v.label}</option>);
 
 export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {

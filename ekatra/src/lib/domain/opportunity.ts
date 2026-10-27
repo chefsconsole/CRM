@@ -58,7 +58,7 @@ export function evaluateOpportunity(i: OpportunityInput): Opportunity {
   const top = [...configs.entries()].sort((a, b) => b[1] - a[1])[0];
   const topConfig = top ? { bhk: top[0], buyers: top[1] } : null;
 
-  const devPoints: Partial<Record<DeveloperStage, number>> = { NEGOTIATION: 4, TERMS_AGREED: 5, ACTIVE_PARTNERSHIP: 6, DEMAND_PRESENTED: 3, MEETING_SCHEDULED: 2, CONTACTED: 1 };
+  const devPoints: Partial<Record<DeveloperStage, number>> = { NEGOTIATING: 4, TERMS_AGREED: 5, PROPOSAL_SENT: 3, CONTACTED: 1 };
   const scoreParts = [
     { label: "Qualified buyers × 3", points: qualified * 3 },
     { label: "Ready within 30 days × 4", points: ready30 * 4 },

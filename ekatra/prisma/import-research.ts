@@ -12,7 +12,7 @@ export async function importResearch(db: PrismaClient) {
     const dev = await db.developer.upsert({
       where: { slug: d.slug },
       update: {},
-      create: { slug: d.slug, name: d.name, website: d.website, notes: d.legalNote, stage: "IDENTIFIED", verification: "AWAITING_VERIFICATION", isPublic: false, isDemo: false },
+      create: { slug: d.slug, name: d.name, website: d.website, notes: d.legalNote, stage: "RESEARCHING", verification: "AWAITING_VERIFICATION", isPublic: false, isDemo: false },
     });
     devIds[d.slug] = dev.id;
   }

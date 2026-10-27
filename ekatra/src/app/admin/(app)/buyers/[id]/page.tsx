@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { toISTDateTimeInput } from "@/lib/time";
 import { notFound } from "next/navigation";
 import { Phone, Mail, ShieldCheck, CalendarPlus, Sparkles, AlertTriangle } from "lucide-react";
 import { requirePermission } from "@/lib/auth";
@@ -25,7 +26,7 @@ import { addInterestAction, campaignMembershipAction, eraseBuyerAction, logActiv
 
 export const metadata = { title: "Buyer" };
 
-const toLocalInput = (d: Date | null) => (d ? new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "");
+const toLocalInput = toISTDateTimeInput;
 
 export default async function BuyerProfile({ params }: { params: Promise<{ id: string }> }) {
   const user = await requirePermission("buyers:read");

@@ -1,8 +1,9 @@
 import type { InventoryUnit } from "@prisma/client";
+import { toISTDateInput } from "@/lib/time";
 import { Field, Input, Select, Textarea } from "../ui/field";
 import { AVAILABILITY, CONFIDENTIALITY } from "@/lib/labels";
 
-const d = (x: Date | null | undefined) => (x ? new Date(x).toISOString().slice(0, 10) : "");
+const d = toISTDateInput;
 
 export function InventoryFields({ u, projects, markets, showContacts = true }: { u?: InventoryUnit | null; projects: { id: string; name: string }[]; markets: string[]; showContacts?: boolean }) {
   return (
@@ -14,7 +15,7 @@ export function InventoryFields({ u, projects, markets, showContacts = true }: {
           <Field label="Project name" required className="sm:col-span-2"><Input name="projectName" defaultValue={u?.projectName ?? ""} required /></Field>
           <Field label="Link to project record"><Select name="projectId" defaultValue={u?.projectId ?? ""}><option value="">Not linked</option>{projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</Select></Field>
           <Field label="Developer"><Input name="developerName" defaultValue={u?.developerName ?? ""} /></Field>
-          <Field label="Micro-market" required><Input name="microMarket" list="markets" defaultValue={u?.microMarket ?? ""} required /><datalist id="markets">{markets.map((m) => <option key={m} value={m} />)}</datalist></Field>
+          <Field label="Locality" required><Input name="microMarket" list="markets" defaultValue={u?.microMarket ?? ""} required /><datalist id="markets">{markets.map((m) => <option key={m} value={m} />)}</datalist></Field>
           <Field label="Unit number"><Input name="unitNumber" defaultValue={u?.unitNumber ?? ""} /></Field>
           <Field label="Configuration" required><Input name="configuration" defaultValue={u?.configuration ?? ""} placeholder="2 BHK" required /></Field>
           <Field label="BHK (number)"><Input name="bhk" inputMode="decimal" defaultValue={u?.bhk ?? ""} /></Field>
@@ -28,7 +29,7 @@ export function InventoryFields({ u, projects, markets, showContacts = true }: {
       </section>
       <section>
         <h3 className="mb-1 font-serif text-xl text-ink-900">Price & comparison</h3>
-        <p className="mb-4 text-[12.5px] text-stone-500">A unit is only described as below the builder's price when the quote is dated, sourced and like-for-like (same configuration, carpet within 5%).</p>
+        <p className="mb-4 text-[12.5px] text-stone-500">A difference is only calculated when the developer quote is current (under 90 days), dated, sourced and like-for-like (same configuration, carpet within 5%) — and only presented as a saving after a manager reviews the evidence.</p>
         <div className="grid gap-4 sm:grid-cols-4">
           <Field label="Asking price (₹)" required><Input name="askingPrice" inputMode="numeric" defaultValue={u?.askingPrice ?? ""} required /></Field>
           <Field label="Asking includes"><Input name="askingIncludes" defaultValue={u?.askingIncludes ?? ""} placeholder="1 car park, GST" /></Field>
@@ -37,6 +38,7 @@ export function InventoryFields({ u, projects, markets, showContacts = true }: {
           <Field label="Builder quote (₹)"><Input name="builderQuote" inputMode="numeric" defaultValue={u?.builderQuote ?? ""} /></Field>
           <Field label="Quote date"><Input type="date" name="builderQuoteDate" defaultValue={d(u?.builderQuoteDate)} /></Field>
           <Field label="Quote source" className="sm:col-span-2"><Input name="builderQuoteSource" defaultValue={u?.builderQuoteSource ?? ""} placeholder="Developer sales office cost sheet, 12 Oct 2026" /></Field>
+          <Field label="Quote evidence" className="sm:col-span-2" hint="URL of the cost sheet, or upload it under Photos & documents"><Input name="builderQuoteEvidence" defaultValue={u?.builderQuoteEvidence ?? ""} placeholder="https://… or doc:… (set automatically on upload)" /></Field>
           <Field label="Quote configuration"><Input name="builderQuoteConfig" defaultValue={u?.builderQuoteConfig ?? ""} /></Field>
           <Field label="Quote carpet (sq ft)"><Input name="builderQuoteCarpet" inputMode="numeric" defaultValue={u?.builderQuoteCarpet ?? ""} /></Field>
           <Field label="Quote floor"><Input name="builderQuoteFloor" defaultValue={u?.builderQuoteFloor ?? ""} /></Field>

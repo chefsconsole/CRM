@@ -136,14 +136,12 @@ enum FundingReadiness {
 }
 
 enum DeveloperStage {
-  IDENTIFIED
+  RESEARCHING
   CONTACTED
-  MEETING_SCHEDULED
-  DEMAND_PRESENTED
-  NEGOTIATION
+  PROPOSAL_SENT
+  NEGOTIATING
   TERMS_AGREED
-  ACTIVE_PARTNERSHIP
-  INACTIVE
+  CLOSED
 }
 
 enum NegotiationStatus {
@@ -358,6 +356,7 @@ enum ResearchStatus {
 /// Legal / commercial lifecycle. These stages are NOT interchangeable.
 enum LifecycleStage {
   ANNOUNCED_BY_DEVELOPER
+  UPCOMING
   PRE_LAUNCH_MARKETING
   MAHARERA_REGISTERED
   OFFICIAL_LAUNCH
@@ -365,6 +364,7 @@ enum LifecycleStage {
   UNDER_CONSTRUCTION
   COMPLETED_OC_RECEIVED
   SOLD_OUT
+  INVENTORY_CONFIRMED
   INVENTORY_NOT_CONFIRMED
 }
 
@@ -400,6 +400,18 @@ enum InventoryAvailability {
   SOLD
   WITHDRAWN
   UNCONFIRMED
+}
+
+enum ComparisonReview {
+  UNREVIEWED
+  ACCEPTED
+  REJECTED
+}
+
+enum CampaignScope {
+  PROJECT
+  LOCALITY
+  SEGMENT
 }
 
 enum Confidentiality {
@@ -521,7 +533,7 @@ model Developer {
   email                String?
   phone                String?
   established          Int?
-  stage                DeveloperStage   @default(IDENTIFIED)
+  stage                DeveloperStage   @default(RESEARCHING)
   verification         DataVerification @default(AWAITING_VERIFICATION)
   /// True when the name belongs to a real company but nothing here has been verified with them.
   isUnverifiedRealName Boolean          @default(false)
@@ -546,16 +558,19 @@ model Developer {
 }
 
 model DeveloperContact {
-  id          String    @id @default(cuid())
-  developerId String
-  developer   Developer @relation(fields: [developerId], references: [id], onDelete: Cascade)
-  name        String
-  designation String?
-  email       String?
-  phone       String?
-  isSalesTeam Boolean   @default(false)
-  notes       String?
-  createdAt   DateTime  @default(now())
+  id              String    @id @default(cuid())
+  developerId     String
+  developer       Developer @relation(fields: [developerId], references: [id], onDelete: Cascade)
+  name            String
+  designation     String?
+  email           String?
+  phone           String?
+  isSalesTeam     Boolean   @default(false)
+  /// Where this contact came from (e.g. "Business card at site office", "Developer website").
+  source          String?
+  lastContactedAt DateTime?
+  notes           String?
+  createdAt       DateTime  @default(now())
 
   @@index([developerId])
 }
@@ -598,6 +613,14 @@ model Project {
   conflictFlag           Boolean             @default(false)
   conflictNotes          String?
   nextVerificationAt     DateTime?
+  /// Checks still to be done before the record can be approved (one per line item).
+  outstandingChecks      String[]
+  /// What could not be accessed during research (e.g. MahaRERA portal blocked) — recorded, never hidden.
+  accessLimitations      String?
+  researchNotes          String?
+  approvalBy             String?
+  approvalAt             DateTime?
+  approvalNote           String?
   market                 String?
   segment                PropertySegment     @default(RESIDENTIAL)
   dealType               DealType            @default(SALE)
@@ -737,6 +760,13 @@ model InventoryUnit {
   askingExtraCosts     Float?
   builderExtraCosts    Float?
   comparisonNotes      String?
+  /// Where the builder quote came from as evidence: URL, or "doc:<documentId>" for an uploaded cost sheet.
+  builderQuoteEvidence String?
+  /// A person must accept the comparison before it is presented as a saving.
+  comparisonReview     ComparisonReview      @default(UNREVIEWED)
+  comparisonReviewedBy String?
+  comparisonReviewedAt DateTime?
+  comparisonReviewNote String?
   availability         InventoryAvailability @default(UNCONFIRMED)
   ownerSource          String?
   contactName          String?
@@ -754,6 +784,8 @@ model InventoryUnit {
   createdById          String?
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
+
+  tasks Task[]
 
   @@index([availability, approvalStatus])
   @@index([microMarket])
@@ -959,6 +991,8 @@ model SavedSegment {
   isShared    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  campaigns Campaign[]
 }
 
 model BuyerLocationPreference {
@@ -1025,8 +1059,17 @@ model Campaign {
   id                 String           @id @default(cuid())
   slug               String           @unique
   name               String
-  projectId          String
-  project            Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  /// PROJECT campaigns gather buyers for one project; LOCALITY and SEGMENT campaigns gather demand
+  /// (e.g. "Borivali West · 2 BHK · ₹1.5–2 Cr") before a specific project is chosen. Only PROJECT
+  /// campaigns can be public.
+  scope              CampaignScope    @default(PROJECT)
+  projectId          String?
+  project            Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  locationIds        String[]
+  budgetMin          Float?
+  budgetMax          Float?
+  segmentId          String?
+  segment            SavedSegment?    @relation(fields: [segmentId], references: [id], onDelete: SetNull)
   headline           String?
   publicNote         String?
   /// Optional focus on specific configurations (e.g. a 2 BHK buying group).
@@ -1072,20 +1115,22 @@ model CampaignMember {
 }
 
 model Benefit {
-  id           String        @id @default(cuid())
-  projectId    String
-  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  campaignId   String?
-  campaign     Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
-  title        String
-  description  String?
-  status       BenefitStatus @default(UNDER_NEGOTIATION)
-  confirmedAt  DateTime?
-  confirmedBy  String?
-  evidenceNote String?
-  validUntil   DateTime?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id                 String        @id @default(cuid())
+  projectId          String
+  project            Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  campaignId         String?
+  campaign           Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  title              String
+  description        String?
+  status             BenefitStatus @default(UNDER_NEGOTIATION)
+  confirmedAt        DateTime?
+  confirmedBy        String?
+  evidenceNote       String?
+  /// Uploaded written confirmation (letter / email) from the developer.
+  evidenceDocumentId String?
+  validUntil         DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
   @@index([projectId, status])
 }
@@ -1124,6 +1169,7 @@ model Negotiation {
 
   updates    NegotiationUpdate[]
   agreements CommercialAgreement[]
+  tasks      Task[]
 
   @@index([developerId])
   @@index([status])
@@ -1292,19 +1338,31 @@ model Activity {
   @@index([campaignId, createdAt])
 }
 
+/// A follow-up: one record per thing to do, for a buyer, developer, inventory unit or negotiation.
+/// The "next follow-up" dates on those records are derived from their earliest open follow-up.
 model Task {
-  id          String     @id @default(cuid())
-  title       String
-  dueAt       DateTime?
-  status      TaskStatus @default(OPEN)
-  assigneeId  String?
-  assignee    User?      @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-  buyerId     String?
-  buyer       Buyer?     @relation(fields: [buyerId], references: [id], onDelete: Cascade)
-  developerId String?
-  developer   Developer? @relation(fields: [developerId], references: [id], onDelete: Cascade)
-  createdAt   DateTime   @default(now())
-  completedAt DateTime?
+  id              String         @id @default(cuid())
+  title           String
+  dueAt           DateTime?
+  status          TaskStatus     @default(OPEN)
+  assigneeId      String?
+  assignee        User?          @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  buyerId         String?
+  buyer           Buyer?         @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  developerId     String?
+  developer       Developer?     @relation(fields: [developerId], references: [id], onDelete: Cascade)
+  inventoryUnitId String?
+  inventoryUnit   InventoryUnit? @relation(fields: [inventoryUnitId], references: [id], onDelete: Cascade)
+  negotiationId   String?
+  negotiation     Negotiation?   @relation(fields: [negotiationId], references: [id], onDelete: Cascade)
+  /// Created from a record's "next follow-up" field (kept in sync with it).
+  auto            Boolean        @default(false)
+  notes           String?
+  outcome         String?
+  createdAt       DateTime       @default(now())
+  completedAt     DateTime?
+  completedById   String?
+  cancelledAt     DateTime?
 
   @@index([assigneeId, status, dueAt])
 }
