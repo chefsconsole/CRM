@@ -4,7 +4,7 @@ import { Checkbox, Field, Input, Select, Textarea } from "../ui/field";
 import { INTEREST_TIER } from "@/lib/labels";
 import { DEFAULT_COUNTING_TIERS } from "@/lib/domain/demand";
 
-export function CampaignFields({ c, users, defaults }: { c?: Campaign | null; users: { id: string; name: string }[]; defaults?: { name?: string; focus?: number[] } }) {
+export function CampaignFields({ c, users, defaults, allowPublic = true }: { c?: Campaign | null; users: { id: string; name: string }[]; defaults?: { name?: string; focus?: number[] }; allowPublic?: boolean }) {
   const counting = c?.countingTiers ?? DEFAULT_COUNTING_TIERS;
   const focus = c?.focusConfigs ?? defaults?.focus ?? [];
   return (
@@ -27,10 +27,33 @@ export function CampaignFields({ c, users, defaults }: { c?: Campaign | null; us
         </div>
       </Field>
       <Field label="Owner"><Select name="ownerId" defaultValue={c?.ownerId ?? ""}><option value="">—</option>{users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</Select></Field>
+      {allowPublic ? (
+        <>
       <Field label="Public buyer counts"><Select name="visibility" defaultValue={c?.visibility ?? "APPROXIMATE"}><option value="EXACT">Exact</option><option value="APPROXIMATE">Approximate (5+, 10+…)</option><option value="PRIVATE">Private</option></Select></Field>
-      <Field label="Public headline"><Input name="headline" defaultValue={c?.headline ?? ""} placeholder="Borivali West — 2 BHK Buying Group" /></Field>
-      <div className="flex items-end pb-2"><Checkbox name="isPublic" defaultChecked={c?.isPublic ?? false} label="Show this group on the public website" /></div>
-      <Field label="Public note" className="sm:col-span-2"><Textarea name="publicNote" defaultValue={c?.publicNote ?? "Joining expresses interest only. It does not commit you to buy, and reaching the target does not guarantee a discount or allocation."} /></Field>
+          <Field label="Public headline"><Input name="headline" defaultValue={c?.headline ?? ""} placeholder="Borivali West — 2 BHK Buying Group" /></Field>
+          <div className="flex items-end pb-2"><Checkbox name="isPublic" defaultChecked={c?.isPublic ?? false} label="Show this group on the public website" /></div>
+          <Field label="Public note" className="sm:col-span-2"><Textarea name="publicNote" defaultValue={c?.publicNote ?? "Joining expresses interest only. It does not commit you to buy, and reaching the target does not guarantee a discount or allocation."} /></Field>
+        </>
+      ) : <p className="text-[12.5px] text-stone-500 sm:col-span-2">Locality and segment campaigns are internal — they are never shown on the public website.</p>}
+    </div>
+  );
+}
+
+/** Refine a locality / segment campaign's filters after creation (the type itself is fixed). */
+export function CampaignScopeFields({ scope, c, locations, segments, locked }: { scope: "LOCALITY" | "SEGMENT"; c: Campaign; locations: { id: string; name: string }[]; segments: { id: string; name: string }[]; locked?: boolean }) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      {scope === "LOCALITY" ? (
+        <Field label="Localities" className="sm:col-span-2">
+          <div className="flex flex-wrap gap-1.5">
+            {locations.map((l) => <label key={l.id} className="cursor-pointer"><input type="checkbox" name="locationIds" value={l.id} defaultChecked={c.locationIds.includes(l.id)} className="peer sr-only" /><span className="inline-block rounded-full border border-ink-900/12 px-3 py-1.5 text-[12.5px] text-stone-600 peer-checked:border-ink-900 peer-checked:bg-ink-900 peer-checked:text-white">{l.name}</span></label>)}
+          </div>
+        </Field>
+      ) : (
+        <p className="text-[13px] text-stone-600 sm:col-span-2">Segment: {segments.find((s) => s.id === c.segmentId)?.name ?? "—"}{locked ? " (fixed)" : ""}</p>
+      )}
+      <Field label="Budget from (₹)"><Input name="budgetMin" inputMode="numeric" defaultValue={c.budgetMin ?? ""} /></Field>
+      <Field label="Budget up to (₹)"><Input name="budgetMax" inputMode="numeric" defaultValue={c.budgetMax ?? ""} /></Field>
     </div>
   );
 }

@@ -3,8 +3,9 @@ import { Plus, Sparkles, Users, ArrowRight } from "lucide-react";
 import { requirePermission } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { db } from "@/lib/db";
-import { computeCampaignMetrics } from "@/lib/domain/demand";
-import { loadCampaignMembers } from "@/lib/services/campaigns";
+import { campaignInsights, uniqueAcrossCampaigns } from "@/lib/domain/campaign-insights";
+import { loadCampaignDemand } from "@/lib/services/campaigns";
+import { istDay } from "@/lib/time";
 import { projectOpportunities, suggestedGroups } from "@/lib/queries/dashboard";
 import { PageHeader } from "@/components/admin/page-header";
 import { TableShell, Th } from "@/components/admin/table";
@@ -25,15 +26,23 @@ export default async function DemandStudio() {
     projectOpportunities(6),
     suggestedGroups(6),
   ]);
+  const today = istDay();
   const rows = await Promise.all(campaigns.map(async (c) => {
-    const members = await loadCampaignMembers(c.id);
-    const ready30Ids = new Set((await db.buyerRequirement.findMany({ where: { buyerId: { in: members.map((m) => m.buyerId) }, status: "ACTIVE", commitWithinDays: { lte: 30 } }, select: { buyerId: true } })).map((r) => r.buyerId));
-    return { c, m: computeCampaignMetrics(members, c), ready30: members.filter((x) => x.interestStatus === "ACTIVE" && ready30Ids.has(x.buyerId)).length };
+    const d = await loadCampaignDemand(c.id, { candidates: false });
+    return { c, criteria: d.criteria, m: campaignInsights(d.members, d.criteria, { dayStart: today.start, dayEnd: today.end, status: c.status }) };
   }));
+  const active = rows.filter((r) => !["CLOSED", "PAUSED"].includes(r.c.status));
+  const overlap = uniqueAcrossCampaigns((await db.campaignMember.findMany({ where: { campaignId: { in: active.map((r) => r.c.id) }, buyer: { anonymizedAt: null } }, select: { campaignId: true, buyerId: true } })));
   const w = can(user.role, "demand:write");
   return (
     <div className="mx-auto max-w-[1500px]">
       <PageHeader title="Demand Studio" subtitle="Aggregate demand first. Negotiate second. Every buyer is counted once per campaign; interest, qualification and commitment are always shown separately." actions={w ? <ButtonLink href="/admin/demand/new"><Plus className="size-4" /> New campaign</ButtonLink> : undefined} />
+
+      <div className="mb-8 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-2xl bg-ink-900 px-5 py-4 text-ivory-100"><p className="text-[12px] text-ink-300">Unique buyers in active campaigns</p><p className="num mt-1 font-serif text-4xl text-ivory-50">{overlap.uniqueBuyers}</p><p className="text-[11.5px] text-ink-400">Each person counted once across all campaigns</p></div>
+        <div className="rounded-2xl border border-ink-900/[0.07] bg-white px-5 py-4"><p className="text-[12px] text-stone-500">Campaign memberships</p><p className="num mt-1 font-serif text-4xl text-ink-900">{overlap.memberships}</p><p className="text-[11.5px] text-stone-500">{overlap.inMultiple} buyer(s) appear in more than one campaign</p></div>
+        <div className="rounded-2xl border border-ink-900/[0.07] bg-white px-5 py-4"><p className="text-[12px] text-stone-500">Active campaigns</p><p className="num mt-1 font-serif text-4xl text-ink-900">{active.length}</p><p className="text-[11.5px] text-stone-500">{active.filter((r) => r.c.scope !== "PROJECT").length} locality / segment</p></div>
+      </div>
 
       <section>
         <h2 className="mb-4 flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.14em] text-stone-500"><Sparkles className="size-4 text-gold-600" /> Negotiation opportunities</h2>
@@ -76,19 +85,19 @@ export default async function DemandStudio() {
         <h2 className="mb-4 text-[13px] font-semibold uppercase tracking-[0.14em] text-stone-500">Campaigns</h2>
         {rows.length ? (
           <TableShell>
-            <thead className="border-b border-ink-900/5 bg-ivory-50/60"><tr><Th>Campaign</Th><Th>Progress</Th><Th>Registered</Th><Th>Qualified</Th><Th>Ready ≤30d</Th><Th>Qualified demand</Th><Th>Status</Th><Th>Visibility</Th><Th>Target date</Th></tr></thead>
+            <thead className="border-b border-ink-900/5 bg-ivory-50/60"><tr><Th>Campaign</Th><Th>Progress</Th><Th>Unique buyers</Th><Th>Qualified</Th><Th>Ready ≤30d</Th><Th>Budget fits</Th><Th>Follow-ups due</Th><Th>Next action</Th><Th>Status</Th></tr></thead>
             <tbody className="divide-y divide-ink-900/5">
-              {rows.map(({ c, m, ready30 }) => (
+              {rows.map(({ c, criteria, m }) => (
                 <tr key={c.id} className="hover:bg-ivory-50">
-                  <td className="px-4 py-3"><Link href={`/admin/demand/${c.id}`} className="font-medium text-ink-900 hover:underline">{c.name}</Link><p className="text-[12px] text-stone-500">{c.project.name} · {c.owner?.name ?? "No owner"}</p></td>
+                  <td className="px-4 py-3"><Link href={`/admin/demand/${c.id}`} className="font-medium text-ink-900 hover:underline">{c.name}</Link><p className="text-[12px] text-stone-500">{c.scope === "PROJECT" ? c.project?.name : c.scope === "LOCALITY" ? `Locality · ${criteria.localities.join(", ")}` : "Buyer segment"} · {c.owner?.name ?? "No owner"} {c.isPublic && c.scope === "PROJECT" ? <Badge tone="neutral">{VISIBILITY[c.visibility].label}</Badge> : null}</p></td>
                   <td className="px-4 py-3"><div className="flex items-center gap-3"><ProgressRing value={m.progress} size={44} stroke={4} label={<span className="num text-[10.5px] font-semibold">{Math.round(m.progress * 100)}%</span>} /><span className="num text-[12.5px] text-stone-600">{m.counting}/{c.targetBuyers}</span></div></td>
-                  <td className="num px-4 py-3">{m.registered}</td>
+                  <td className="num px-4 py-3 font-semibold text-ink-900">{m.interested}<p className="text-[11px] font-normal text-stone-500">{m.casual} casual</p></td>
                   <td className="num px-4 py-3">{m.qualified}</td>
-                  <td className="num px-4 py-3">{ready30}</td>
-                  <td className="num px-4 py-3">{formatINR(m.combinedBudgetQualified)}</td>
-                  <td className="px-4 py-3"><LabelBadge map={CAMPAIGN_STATUS} value={c.status} /></td>
-                  <td className="px-4 py-3">{c.isPublic ? <Badge tone="neutral">{VISIBILITY[c.visibility].label}</Badge> : <Badge tone="muted">Internal</Badge>}</td>
-                  <td className="px-4 py-3 text-[12.5px] text-stone-600">{formatDate(c.targetDate)}</td>
+                  <td className="num px-4 py-3">{m.ready30}</td>
+                  <td className="num px-4 py-3">{m.budget.FITS + m.budget.STRETCH}<p className="text-[11px] text-stone-500">{m.budget.UNKNOWN ? `${m.budget.UNKNOWN} unknown` : ""}</p></td>
+                  <td className={`num px-4 py-3 ${m.followUpsOverdue ? "font-medium text-clay-600" : ""}`}>{m.followUpsDue}</td>
+                  <td className="max-w-64 px-4 py-3 text-[12.5px] text-stone-700">{m.nextActions[0]?.title ?? "—"}</td>
+                  <td className="px-4 py-3"><LabelBadge map={CAMPAIGN_STATUS} value={c.status} /><p className="mt-1 text-[11px] text-stone-500">{c.targetDate ? `by ${formatDate(c.targetDate)}` : ""}</p></td>
                 </tr>
               ))}
             </tbody>

@@ -51,6 +51,8 @@ describe("public display", () => {
     expect(isLiveConfirmed({ status: "UNDER_NEGOTIATION", confirmedAt: null, validUntil: null }, now)).toBe(false);
     expect(isLiveConfirmed({ status: "CONFIRMED", confirmedAt: new Date("2026-10-01"), validUntil: new Date("2026-10-20") }, now)).toBe(false);
     expect(effectiveBenefitStatus({ status: "CONFIRMED", confirmedAt: new Date("2026-10-01"), validUntil: new Date("2026-10-20") }, now)).toBe("EXPIRED_WITHDRAWN");
-    expect(isLiveConfirmed({ status: "CONFIRMED", confirmedAt: new Date("2026-10-01"), validUntil: null }, now)).toBe(true);
+    // Validity must be known before anything is advertised.
+    expect(isLiveConfirmed({ status: "CONFIRMED", confirmedAt: new Date("2026-10-01"), validUntil: null }, now)).toBe(false);
+    expect(isLiveConfirmed({ status: "CONFIRMED", confirmedAt: new Date("2026-10-01"), validUntil: new Date("2026-12-31") }, now)).toBe(true);
   });
 });

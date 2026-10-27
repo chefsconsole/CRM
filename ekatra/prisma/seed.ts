@@ -338,7 +338,7 @@ async function main() {
   await db.benefit.createMany({
     data: [
       { projectId: proj["solace-bay"]!.id, campaignId: camp["solace-bay-group"], title: "Floor-rise charges waived up to the 12th floor", description: "For buyers introduced through the Solace Bay group who book within the validity window.", status: "CONFIRMED", confirmedAt: daysAgo(12), confirmedBy: "Head of Sales, Aaranya Developers (fictional)", evidenceNote: "Signed letter on file (demo).", validUntil: daysAhead(40) },
-      { projectId: proj["solace-bay"]!.id, campaignId: camp["solace-bay-group"], title: "Modular kitchen upgrade", description: "Upgrade to the premium kitchen package.", status: "CONFIRMED", confirmedAt: daysAgo(12), confirmedBy: "Head of Sales, Aaranya Developers (fictional)", validUntil: daysAhead(40) },
+      { projectId: proj["solace-bay"]!.id, campaignId: camp["solace-bay-group"], title: "Modular kitchen upgrade", description: "Upgrade to the premium kitchen package.", status: "CONFIRMED", confirmedAt: daysAgo(12), confirmedBy: "Head of Sales, Aaranya Developers (fictional)", evidenceNote: "Same signed letter (demo).", validUntil: daysAhead(40) },
       { projectId: proj["solace-bay"]!.id, campaignId: camp["solace-bay-group"], title: "Early-bird payment plan", description: "Previously offered 20:80 plan.", status: "EXPIRED_WITHDRAWN", confirmedAt: daysAgo(70), validUntil: daysAgo(30) },
       { projectId: proj["northbay-one"]!.id, campaignId: camp["northbay-group"], title: "Group pricing and flexible payment plan", description: "Requested from the developer for the group. Nothing has been agreed.", status: "UNDER_NEGOTIATION" },
     ],

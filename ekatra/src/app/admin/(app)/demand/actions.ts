@@ -10,9 +10,26 @@ import { addBuyerToCampaign, checkCampaignMilestones, removeBuyerFromCampaign } 
 import { slugify } from "@/lib/format";
 import { audit } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
-import { isLiveConfirmed } from "@/lib/domain/benefits";
+import { isLiveConfirmed, benefitConfirmationProblems } from "@/lib/domain/benefits";
+
+/** A benefit is "confirmed" only with who confirmed it, written evidence, its terms and a validity date. */
+function assertBenefitEvidence(b: Parameters<typeof benefitConfirmationProblems>[0]) {
+  const problems = benefitConfirmationProblems(b);
+  if (problems.length) throw new UserError(`To mark it confirmed: ${problems.join("; ")}.`);
+}
 
 const tiers = z.array(z.enum(["EXPRESSION_OF_INTEREST", "VERIFIED_LEAD", "FINANCIALLY_QUALIFIED", "COMMITTED"])).min(1, "Choose at least one interest level that counts toward the target.");
+
+function scopeData(form: FormData) {
+  const scope = z.enum(["PROJECT", "LOCALITY", "SEGMENT"]).parse(form.get("scope") ?? "PROJECT");
+  const budgetMin = fd.num(form, "budgetMin");
+  const budgetMax = fd.num(form, "budgetMax");
+  if (budgetMin !== null && budgetMax !== null && budgetMin > budgetMax) throw new UserError("Minimum budget is above the maximum.");
+  const projectId = scope === "PROJECT" ? z.string().cuid({ message: "Choose a project." }).parse(form.get("projectId")) : null;
+  const locationIds = scope === "LOCALITY" ? z.array(z.string().cuid()).min(1, "Choose at least one locality.").parse(fd.list(form, "locationIds")) : [];
+  const segmentId = scope === "SEGMENT" ? z.string().cuid({ message: "Choose a saved buyer segment." }).parse(form.get("segmentId")) : null;
+  return { scope, projectId, locationIds, segmentId, budgetMin, budgetMax };
+}
 
 function campaignData(form: FormData) {
   return {
@@ -33,13 +50,17 @@ export async function createCampaignAction(_: ActionState, form: FormData): Prom
   let id: string;
   try {
     const user = await assertPermission("demand:write");
-    const projectId = z.string().cuid({ message: "Choose a project." }).parse(form.get("projectId"));
+    const scope = scopeData(form);
+    const projectId = scope.projectId;
     const data = campaignData(form);
-    const project = await db.project.findUniqueOrThrow({ where: { id: projectId } });
-    if (data.isPublic && !(project.isPublished && project.complianceReviewed)) throw new UserError("Public campaigns need a published, compliance-reviewed project. Keep it internal for now.");
+    if (data.isPublic) {
+      if (!projectId) throw new UserError("Only project campaigns can be shown publicly. Locality and segment campaigns stay internal.");
+      const project = await db.project.findUniqueOrThrow({ where: { id: projectId } });
+      if (!(project.isPublished && project.complianceReviewed && project.approvalStatus === "APPROVED")) throw new UserError("Public campaigns need an approved, published project. Keep it internal for now.");
+    }
     let slug = slugify(data.name) || "campaign";
     for (let i = 2; await db.campaign.findUnique({ where: { slug } }); i++) slug = `${slugify(data.name)}-${i}`;
-    const c = await db.campaign.create({ data: { ...data, slug, projectId, status: "COLLECTING_DEMAND", milestonesNotified: [] } });
+    const c = await db.campaign.create({ data: { ...data, ...scope, slug, status: "COLLECTING_DEMAND", milestonesNotified: [] } });
     const buyerIds = fd.list(form, "buyerIds");
     for (const b of buyerIds) await addBuyerToCampaign(c.id, b, "Approved group suggestion", user.id);
     await db.activity.create({ data: { type: "CAMPAIGN", title: `Campaign created${buyerIds.length ? ` with ${buyerIds.length} reviewed buyer(s)` : ""}`, campaignId: c.id, projectId, actorId: user.id } });
@@ -59,8 +80,11 @@ export async function updateCampaignAction(_: ActionState, form: FormData): Prom
     const status = z.enum(["DRAFT", "COLLECTING_DEMAND", "READY_FOR_DEVELOPER", "NEGOTIATING", "BENEFITS_CONFIRMED", "PAUSED", "CLOSED"]).parse(form.get("status"));
     const c = await db.campaign.findUniqueOrThrow({ where: { id }, include: { project: true, benefits: true } });
     if (status === "BENEFITS_CONFIRMED" && !c.benefits.some((b) => isLiveConfirmed(b))) throw new UserError("Record at least one benefit confirmed by the developer before using this status.");
-    if (data.isPublic && !(c.project.isPublished && c.project.complianceReviewed)) throw new UserError("The project must be published before the campaign can be public.");
-    await db.campaign.update({ where: { id }, data: { ...data, status } });
+    if (data.isPublic && !c.project) throw new UserError("Only project campaigns can be shown publicly.");
+    if (data.isPublic && c.project && !(c.project.isPublished && c.project.complianceReviewed && c.project.approvalStatus === "APPROVED")) throw new UserError("The project must be approved and published before the campaign can be public.");
+    // The scope (project / locality / segment) is fixed at creation; its filters can be refined.
+    const refine = c.scope === "PROJECT" ? {} : { budgetMin: fd.num(form, "budgetMin"), budgetMax: fd.num(form, "budgetMax"), ...(c.scope === "LOCALITY" ? { locationIds: z.array(z.string().cuid()).min(1, "Choose at least one locality.").parse(fd.list(form, "locationIds")) } : {}) };
+    await db.campaign.update({ where: { id }, data: { ...data, ...refine, status } });
     if (status !== c.status) await db.activity.create({ data: { type: "CAMPAIGN", title: `Status: ${c.status.replace(/_/g, " ").toLowerCase()} → ${status.replace(/_/g, " ").toLowerCase()}`, campaignId: id, actorId: user.id } });
     await checkCampaignMilestones(id);
     await audit(user, "campaign.update", "Campaign", id);
@@ -90,6 +114,21 @@ export async function memberAction(_: ActionState, form: FormData): Promise<Acti
   }
 }
 
+/** Adds the buyers ticked in "Matching buyers" — each still counted once. */
+export async function addMembersAction(_: ActionState, form: FormData): Promise<ActionState> {
+  try {
+    const user = await assertPermission("demand:write");
+    const campaignId = z.string().cuid().parse(form.get("campaignId"));
+    const ids = z.array(z.string().cuid()).min(1, "Tick at least one buyer.").max(200).parse(fd.list(form, "buyerIds"));
+    let added = 0;
+    for (const id of ids) if ((await addBuyerToCampaign(campaignId, id, "Reviewed match", user.id)).added) added++;
+    revalidatePath(`/admin/demand/${campaignId}`);
+    return { ok: true, message: `Added ${added} buyer(s)${ids.length - added ? `; ${ids.length - added} already in the campaign` : ""}.` };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
 export async function logOutreachAction(_: ActionState, form: FormData): Promise<ActionState> {
   try {
     const user = await assertPermission("demand:write");
@@ -109,10 +148,11 @@ export async function benefitAction(_: ActionState, form: FormData): Promise<Act
     const user = await assertPermission("commercial:write");
     const campaignId = z.string().cuid().parse(form.get("campaignId"));
     const c = await db.campaign.findUniqueOrThrow({ where: { id: campaignId } });
+    if (!c.projectId) throw new UserError("Benefits belong to a specific project. Record them on a project campaign.");
     const status = z.enum(["UNDER_NEGOTIATION", "CONFIRMED", "EXPIRED_WITHDRAWN"]).parse(form.get("status"));
     const confirmedBy = fd.str(form, "confirmedBy");
     const evidenceNote = fd.str(form, "evidenceNote");
-    if (status === "CONFIRMED" && (!confirmedBy || !evidenceNote)) throw new UserError("A confirmed benefit needs who confirmed it and the evidence (e.g. signed letter on file).");
+    if (status === "CONFIRMED") assertBenefitEvidence({ confirmedBy, evidenceNote, evidenceDocumentId: null, description: fd.str(form, "description"), validUntil: fd.date(form, "validUntil") });
     const data = {
       title: z.string().trim().min(3).max(140).parse(form.get("title")),
       description: fd.str(form, "description"),
