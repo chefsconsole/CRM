@@ -1,0 +1,46 @@
+{
+  "name": "hotelbridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "HotelBridge Global — curated B2B hotel distribution network: agent portal, contracted hotel engine, booking lifecycle, Group Desk and commercial intelligence.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false server/src/index.ts",
+    "demo": "APP_ENV=demo DEMO_SEED=true tsx server/src/index.ts",
+    "build": "npm run build:web && npm run build:server",
+    "build:web": "vite build",
+    "build:server": "tsc -p tsconfig.server.json",
+    "start": "NODE_ENV=production node dist/server/src/index.js",
+    "typecheck": "tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.web.json --noEmit",
+    "test": "vitest run",
+    "test:pg": "vitest run --no-file-parallelism",
+    "migrate": "tsx server/src/db/migrateCli.ts",
+    "seed:demo": "tsx server/src/db/seedDemo.ts",
+    "create-admin": "tsx server/src/db/createAdmin.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.2.17",
+    "@fontsource-variable/inter": "5.1.1",
+    "cookie-parser": "1.4.7",
+    "express": "4.21.2",
+    "pg": "8.13.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-router-dom": "6.28.1",
+    "zod": "3.24.1"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "1.4.8",
+    "@types/express": "4.17.21",
+    "@types/node": "20.17.10",
+    "@types/pg": "8.11.10",
+    "@types/react": "18.3.18",
+    "@types/react-dom": "18.3.5",
+    "@vitejs/plugin-react": "4.3.4",
+    "tsx": "4.19.2",
+    "typescript": "5.7.3",
+    "vite": "5.4.11",
+    "vitest": "2.1.8"
+  }
+}

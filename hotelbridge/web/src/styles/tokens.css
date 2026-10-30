@@ -1,0 +1,54 @@
+:root {
+  /* Foundation */
+  --ink: #0b1220;
+  --ink-2: #141d2e;
+  --ink-3: #222c40;
+  --paper: #faf8f4;
+  --surface: #ffffff;
+  --sand: #f3efe8;
+  --sand-2: #ebe5da;
+  --line: #e6e0d6;
+  --line-strong: #d3cbbd;
+
+  /* Text */
+  --text: #10141b;
+  --text-2: #4a505c;
+  --text-3: #767c88;
+  --text-inverse: #f5f2ec;
+  --text-inverse-2: #a9b0bd;
+
+  /* Accent — used sparingly */
+  --champagne: #9c7f4f;
+  --champagne-bright: #c9ae7e;
+  --champagne-soft: #f4ede0;
+
+  /* Status */
+  --positive: #1d6a46; --positive-bg: #e7f2ec;
+  --pending: #285a8d; --pending-bg: #e8eff8;
+  --attention: #855700; --attention-bg: #fbf0d9;
+  --negative: #9a2d2a; --negative-bg: #f8e6e4;
+  --neutral: #59606b; --neutral-bg: #efece7;
+
+  /* Type */
+  --font: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --fs-xs: 0.75rem; --fs-sm: 0.8125rem; --fs-base: 0.9375rem; --fs-md: 1.0625rem; --fs-lg: 1.25rem;
+  --fs-xl: 1.625rem; --fs-2xl: 2.125rem; --fs-3xl: clamp(2.25rem, 4.4vw, 3.5rem); --fs-hero: clamp(2.5rem, 5.4vw, 4.5rem);
+
+  /* Space & shape */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px; --s8: 32px; --s10: 40px; --s12: 48px; --s16: 64px; --s20: 80px; --s24: 112px;
+  --r-sm: 6px; --r: 10px; --r-lg: 14px; --r-xl: 20px;
+  --shadow-1: 0 1px 2px rgba(16, 20, 27, 0.05);
+  --shadow-2: 0 1px 2px rgba(16, 20, 27, 0.04), 0 8px 24px -12px rgba(16, 20, 27, 0.16);
+  --shadow-3: 0 24px 64px -24px rgba(11, 18, 32, 0.35);
+  --focus: 0 0 0 3px rgba(156, 127, 79, 0.35);
+
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --t-fast: 140ms; --t: 220ms; --t-slow: 420ms;
+  --sidebar: 248px;
+  --content: 1180px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --t-fast: 0ms; --t: 0ms; --t-slow: 0ms; }
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
+}
